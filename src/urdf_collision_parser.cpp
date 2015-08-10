@@ -396,16 +396,17 @@ boost::shared_ptr< const Link > CollisionModel::getLink(int id)
 	return links_[id];
 }
 
-int CollisionModel::getLinkIndex(const std::string &name)
-{
-	for (int l_i = 0; l_i < link_count_; l_i++)
-	{
-		if (links_[l_i]->name == name)
-		{
-			return l_i;
-		}
-	}
-	return -1;
+int CollisionModel::getLinkIndex(const std::string &name) const {
+    std::map<std::string, int >::const_iterator idx_it = link_name_idx_map_.find(name);
+    if (idx_it == link_name_idx_map_.end()) {
+        return -1;
+    }
+
+    return idx_it->second;
+}
+
+const std::string &CollisionModel::getLinkName(int idx) const {
+    return links_[idx]->name;
 }
 
 KDL::Vector initVectorFromString(const std::string &vector_str)
@@ -861,6 +862,7 @@ boost::shared_ptr<CollisionModel> CollisionModel::parseURDF(const std::string &x
 		plink->index_ = link_index;
 		try {
 			parseLink(*plink, link_xml);
+            model->link_name_idx_map_[plink->name] = plink->index_;
 		}
 		catch (urdf::ParseError &e) {
 			ROS_ERROR("link xml is not initialized correctly");
@@ -1122,9 +1124,34 @@ bool CollisionModel::addLink(const std::string &name, const std::string &parent_
         (*it)->parent_link_idx_ = plink->index_;
     }
     links_.push_back(plink);
+    link_name_idx_map_[plink->name] = plink->index_;
+
     link_count_ = links_.size();
 
     return true;
+}
+
+const CollisionModel::VecPtrLink &CollisionModel::getLinks() const {
+    return links_;
+}
+
+int CollisionModel::getLinksCount() const {
+    return link_count_;
+}
+
+bool CollisionModel::getJointLimits(const std::string &joint_name, double &lower, double &upper) const {
+    for (std::vector<Joint>::const_iterator j_it = joints_.begin(); j_it != joints_.end(); j_it++) {
+        if (joint_name == j_it->name_) {
+            lower = j_it->lower_limit_;
+            upper = j_it->upper_limit_;
+            return true;
+        }
+    }
+    return false;
+}
+
+const Link::VecPtrCollision &CollisionModel::getLinkCollisionArray(int idx) const {
+    return links_[idx]->collision_array;
 }
 
 }	// namespace self_collision

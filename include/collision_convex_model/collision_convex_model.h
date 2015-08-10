@@ -157,18 +157,21 @@ public:
 	CollisionPairs enabled_collisions;
 
 	boost::shared_ptr< const Link > getLink(int id);
-	int getLinkIndex(const std::string &name);
+	int getLinkIndex(const std::string &name) const;
+	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();
 	static double getDistance(const Geometry &geom1, const KDL::Frame &tf1, const Geometry &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, double d0);
 
     typedef std::vector< boost::shared_ptr< Link > > VecPtrLink;
-    VecPtrLink links_;
-	int link_count_;
-	int root_index_;
 
-    std::vector<Joint> joints_;
+    const VecPtrLink &getLinks() const;
+    int getLinksCount() const;
 
-private:
+    bool getJointLimits(const std::string &joint_name, double &lower, double &upper) const;
+
+    const Link::VecPtrCollision &getLinkCollisionArray(int idx) const;
+
+protected:
 	CollisionModel();
 
 	bool parseDisableCollision(std::string &link1, std::string &link2, TiXmlElement *c);
@@ -186,6 +189,14 @@ private:
 
 
 	static fcl_2::GJKSolver_indep gjk_solver;
+
+    VecPtrLink links_;
+	int link_count_;
+	int root_index_;
+
+    std::vector<Joint> joints_;
+
+    std::map<std::string, int > link_name_idx_map_;
 };
 
 }	// namespace self_collision
