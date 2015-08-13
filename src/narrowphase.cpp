@@ -265,7 +265,7 @@ bool sphereCapsuleDistance(const Sphere& s1, const Transform3f& tf1,
     *p1 = inverse(tf1).transform(tf2.transform(*p1));
   }
 
-  if(p2) *p2 = segment_point + diff * s1.radius;
+  if(p2) *p2 = segment_point + diff * s2.radius;
 
   return true;
 }

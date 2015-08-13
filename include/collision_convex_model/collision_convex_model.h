@@ -56,20 +56,22 @@ class Geometry
 {
 public:
 	enum {UNDEFINED, CAPSULE, CONVEX, SPHERE};
-	int type;
 	boost::shared_ptr<fcl_2::ShapeBase> shape;
 	Geometry(int type);
 	virtual void clear() = 0;
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array) = 0;
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr) = 0;
 	int marker_id_;
+    int getType() const;
 private:
+	int type_;
 };
 
 class Capsule : public Geometry
 {
 public:
 	Capsule();
+	Capsule(double radius, double length);
 	double radius;
 	double length;
 	virtual void clear();
@@ -82,6 +84,7 @@ class Sphere : public Geometry
 {
 public:
 	Sphere();
+	Sphere(double radius);
 	double radius;
 	virtual void clear();
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
@@ -160,7 +163,7 @@ public:
 	int getLinkIndex(const std::string &name) const;
 	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();
-    static double getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, double d0);
+    static bool getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, double d0, double &distance);
 
     typedef std::vector< boost::shared_ptr< Link > > VecPtrLink;
 
@@ -197,6 +200,17 @@ protected:
     std::vector<Joint> joints_;
 
     std::map<std::string, int > link_name_idx_map_;
+};
+
+class CollisionInfo {
+public:
+    int link1_idx;
+    int link2_idx;
+    KDL::Vector p1_B;
+    KDL::Vector p2_B;
+    double dist;
+    KDL::Vector n1_B;
+    KDL::Vector n2_B;
 };
 
 }	// namespace self_collision
