@@ -163,7 +163,7 @@ public:
 	int getLinkIndex(const std::string &name) const;
 	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();
-    static bool getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, double d0, double &distance);
+    static bool getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, KDL::Vector &n1_out, KDL::Vector &n2_out, double d0, double &distance);
 
     typedef std::vector< boost::shared_ptr< Link > > VecPtrLink;
 
@@ -223,7 +223,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, 
                     const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::set<int> &excluded_link_idx);
 
 bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
-                    double activation_dist, const std::set<int> &excluded_link_idx);
+                    const std::set<int> &excluded_link_idx);
 
 }	// namespace self_collision
 

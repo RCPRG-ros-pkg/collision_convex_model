@@ -134,7 +134,7 @@ namespace details
 
   bool capsuleCapsuleDistance(const Capsule& s1, const Transform3f& tf1,
 			      const Capsule& s2, const Transform3f& tf2,
-			      FCL_REAL* dist, Vec3f* p1_res, Vec3f* p2_res)
+			      FCL_REAL* dist, Vec3f* p1_res, Vec3f* p2_res, Vec3f* n1, Vec3f* n2)
   {
 
     Vec3f p1(tf1.getTranslation());
@@ -162,12 +162,16 @@ namespace details
     Vec3f distVec = c2 -c1;
     distVec.normalize();
 
+    *n1 = distVec;
+
     // extend the point to be border of the capsule.
     // Done by following the directional unit vector for the length of the capsule radius
     *p1_res = c1 + distVec*s1.radius;
 
     distVec = c1-c2;
     distVec.normalize();
+
+    *n2 = distVec;
 
     *p2_res = c2 + distVec*s2.radius;
 
@@ -237,7 +241,7 @@ bool sphereCapsuleIntersect(const Sphere& s1, const Transform3f& tf1,
 */
 bool sphereCapsuleDistance(const Sphere& s1, const Transform3f& tf1, 
                            const Capsule& s2, const Transform3f& tf2,
-                           FCL_REAL* dist, Vec3f* p1, Vec3f* p2)
+                           FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2)
 {
   Transform3f tf2_inv(tf2);
   tf2_inv.inverse();
@@ -253,8 +257,8 @@ bool sphereCapsuleDistance(const Sphere& s1, const Transform3f& tf1,
 
   FCL_REAL distance = diff.length() - s1.radius - s2.radius;
 
-  if(distance <= 0)
-    return false;
+//  if(distance <= 0)
+//    return false;
 
   if(dist) *dist = distance;
 
@@ -264,6 +268,11 @@ bool sphereCapsuleDistance(const Sphere& s1, const Transform3f& tf1,
     *p1 = s_c - diff * s1.radius;
     *p1 = inverse(tf1).transform(tf2.transform(*p1));
   }
+    if (n1) {
+        *n1 = tf2.transform(segment_point) - tf2.transform(s_c);
+        n1->normalize();
+        *n2 = -(*n1);
+    }
 
   if(p2) *p2 = segment_point + diff * s2.radius;
 
@@ -298,22 +307,27 @@ bool sphereSphereIntersect(const Sphere& s1, const Transform3f& tf1,
 */
 bool sphereSphereDistance(const Sphere& s1, const Transform3f& tf1,
                           const Sphere& s2, const Transform3f& tf2,
-                          FCL_REAL* dist, Vec3f* p1, Vec3f* p2)
+                          FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f *n1, Vec3f* n2)
 {
   Vec3f o1 = tf1.getTranslation();
   Vec3f o2 = tf2.getTranslation();
   Vec3f diff = o1 - o2;
   FCL_REAL len = diff.length();
-  if(len > s1.radius + s2.radius)
-  {
+//  if(len > s1.radius + s2.radius)
+//  {
     if(dist) *dist = len - (s1.radius + s2.radius);
     if(p1) *p1 = inverse(tf1).transform(o1 - diff * (s1.radius / len));
     if(p2) *p2 = inverse(tf2).transform(o2 + diff * (s2.radius / len));
+    if(n1) {
+        *n1 = o2 - o1;
+        n1->normalize();
+        *n2 = -(*n1);
+    }
     return true;
-  }
+//  }
 
-  if(dist) *dist = -1;
-  return false;
+//  if(dist) *dist = -1;
+//  return false;
 }
 
 /** \brief the minimum distance from a point to a line */
@@ -2920,17 +2934,17 @@ bool GJKSolver_indep::shapeTriangleIntersect(const Plane& s, const Transform3f& 
 template<>
 bool GJKSolver_indep::shapeDistance<Sphere, Capsule>(const Sphere& s1, const Transform3f& tf1,
                                                      const Capsule& s2, const Transform3f& tf2,
-                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const
 {
-  return details::sphereCapsuleDistance(s1, tf1, s2, tf2, dist, p1, p2);
+  return details::sphereCapsuleDistance(s1, tf1, s2, tf2, dist, p1, p2, n1, n2);
 }
 
 template<>
 bool GJKSolver_indep::shapeDistance<Sphere, Sphere>(const Sphere& s1, const Transform3f& tf1,
                                                     const Sphere& s2, const Transform3f& tf2,
-                                                    FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+                                                    FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const
 {
-  return details::sphereSphereDistance(s1, tf1, s2, tf2, dist, p1, p2);
+  return details::sphereSphereDistance(s1, tf1, s2, tf2, dist, p1, p2, n1, n2);
 }
 
 template<>
@@ -2953,9 +2967,9 @@ bool GJKSolver_indep::shapeTriangleDistance<Sphere>(const Sphere& s, const Trans
 template<>
 bool GJKSolver_indep::shapeDistance<Capsule, Capsule>(const Capsule& s1, const Transform3f& tf1,
 							const Capsule& s2, const Transform3f& tf2,
-							FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+							FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const
 {
-  return details::capsuleCapsuleDistance(s1, tf1, s2, tf2, dist, p1, p2);
+  return details::capsuleCapsuleDistance(s1, tf1, s2, tf2, dist, p1, p2, n1, n2);
 }
 
 } // fcl

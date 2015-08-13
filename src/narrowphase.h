@@ -55,7 +55,7 @@ struct GJKSolver_indep
   template<typename S1, typename S2>
   bool shapeDistance(const S1& s1, const Transform3f& tf1,
                      const S2& s2, const Transform3f& tf2,
-                     FCL_REAL* distance, Vec3f* p1, Vec3f* p2) const
+                     FCL_REAL* distance, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const
   {
     Vec3f guess(1, 0, 0);
     if(enable_cached_guess) guess = cached_guess;
@@ -98,7 +98,7 @@ struct GJKSolver_indep
                      const S2& s2, const Transform3f& tf2,
                      FCL_REAL* distance) const
   {
-    return shapeDistance(s1, tf1, s2, tf2, distance, NULL, NULL);
+    return shapeDistance(s1, tf1, s2, tf2, distance, NULL, NULL, NULL, NULL);
   }
 
   /// @brief distance computation between one shape and a triangle
@@ -258,20 +258,20 @@ struct GJKSolver_indep
 template<>
 bool GJKSolver_indep::shapeDistance<Sphere, Capsule>(const Sphere& s1, const Transform3f& tf1,
                                                      const Capsule& s2, const Transform3f& tf2,
-                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const;
 
 // @brief Computation of the distance result for capsule capsule. Closest points are based on two line-segments.
  template<>
    bool GJKSolver_indep::shapeDistance<Capsule, Capsule>(const Capsule& s1, const Transform3f& tf1,
 							 const Capsule& s2, const Transform3f& tf2,
-							 FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+							 FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const;
 
 
 /// @brief Fast implementation for sphere-sphere distance
 template<>
 bool GJKSolver_indep::shapeDistance<Sphere, Sphere>(const Sphere& s1, const Transform3f& tf1,
                                                     const Sphere& s2, const Transform3f& tf2,
-                                                    FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+                                                    FCL_REAL* dist, Vec3f* p1, Vec3f* p2, Vec3f* n1, Vec3f* n2) const;
 
 /// @brief Fast implementation for sphere-triangle distance
 template<>
