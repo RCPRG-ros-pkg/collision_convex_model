@@ -1021,6 +1021,9 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
 	}
 	else if (geom1->getType() == Geometry::CAPSULE && geom2->getType() == Geometry::CONVEX)
 	{
+        // TODO
+    	distance = d0 * 2.0;
+        return true;
 //		ROS_INFO("DistanceMeasure::getDistance: CAPSULE,CONVEX");
         const boost::shared_ptr<fcl_2::Capsule >  ob1 = boost::static_pointer_cast<fcl_2::Capsule >(geom1->shape);
         const boost::shared_ptr<fcl_2::Convex >  ob2 = boost::static_pointer_cast<fcl_2::Convex >(geom2->shape);
@@ -1064,6 +1067,10 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
 	}
 	else if (geom1->getType() == Geometry::CONVEX && geom2->getType() == Geometry::CONVEX)
 	{
+        // TODO
+    	distance = d0 * 2.0;
+        return true;
+
 //		ROS_INFO("DistanceMeasure::getDistance: CONVEX,CONVEX");
         const boost::shared_ptr<fcl_2::Convex >  ob1 = boost::static_pointer_cast<fcl_2::Convex >(geom1->shape);
         const boost::shared_ptr<fcl_2::Convex >  ob2 = boost::static_pointer_cast<fcl_2::Convex >(geom2->shape);
