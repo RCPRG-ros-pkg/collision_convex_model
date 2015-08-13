@@ -213,6 +213,18 @@ public:
     KDL::Vector n2_B;
 };
 
+boost::shared_ptr< self_collision::Collision > createCollisionCapsule(double radius, double length, const KDL::Frame &origin);
+boost::shared_ptr< self_collision::Collision > createCollisionSphere(double radius, const KDL::Frame &origin);
+
+void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
+                        double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
+
+bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, const KDL::Frame &T_B_L1, const std::vector<KDL::Frame > &links_fk,
+                    const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::set<int> &excluded_link_idx);
+
+bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
+                    double activation_dist, const std::set<int> &excluded_link_idx);
+
 }	// namespace self_collision
 
 #endif	// COLLISION_CONVEX_MODEL_H
