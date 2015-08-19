@@ -159,7 +159,7 @@ public:
 	CollisionPairs disabled_collisions;
 	CollisionPairs enabled_collisions;
 
-	boost::shared_ptr< const Link > getLink(int id);
+	const boost::shared_ptr< Link > &getLink(int id) const;
 	int getLinkIndex(const std::string &name) const;
 	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();
@@ -221,6 +221,10 @@ void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &
 
 bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, const KDL::Frame &T_B_L1, const std::vector<KDL::Frame > &links_fk,
                     const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::set<int> &excluded_link_idx);
+
+bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Collision > &pcol2, const KDL::Frame &T_B_L2);
+
+bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Link > &link2, const KDL::Frame &T_B_L2);
 
 bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                     const std::set<int> &excluded_link_idx);

@@ -405,12 +405,12 @@ void Joint::clear()
     // TODO
 }
 
-boost::shared_ptr< const Link > CollisionModel::getLink(int id)
-{
+const boost::shared_ptr< Link > &CollisionModel::getLink(int id) const {
+//boost::shared_ptr< const Link > CollisionModel::getLink(int id) {
 	if (id < 0 || id >= link_count_)
 	{
 		ROS_ERROR("CollisionModel::getLink: id out of range: 0 <= %d < %d", id, link_count_);
-		return boost::shared_ptr< const Link >();
+		return boost::shared_ptr< Link >();
 	}
 	return links_[id];
 }
@@ -1316,6 +1316,36 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, 
                 if (dist < 0) {
                     return true;
                 }
+            }
+        }
+
+        return false;
+}
+
+bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Collision > &pcol2, const KDL::Frame &T_B_L2) {
+        double dist = 0.0;
+        KDL::Vector p1_B, p2_B, n1_B, n2_B;
+        KDL::Frame T_B_C1 = T_B_L1 * pcol1->origin;
+        KDL::Frame T_B_C2 = T_B_L2 * pcol2->origin;
+
+        self_collision::CollisionModel::getDistance(pcol1->geometry, T_B_C1, pcol2->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+        if (dist < 0) {
+            return true;
+        }
+
+        return false;
+}
+
+bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Link > &link2, const KDL::Frame &T_B_L2) {
+        double dist = 0.0;
+        KDL::Vector p1_B, p2_B, n1_B, n2_B;
+        KDL::Frame T_B_C1 = T_B_L1 * pcol1->origin;
+
+        for (self_collision::Link::VecPtrCollision::const_iterator col2_it = link2->collision_array.begin(); col2_it != link2->collision_array.end(); col2_it++) {
+            KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
+            self_collision::CollisionModel::getDistance(pcol1->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+            if (dist < 0) {
+                return true;
             }
         }
 
