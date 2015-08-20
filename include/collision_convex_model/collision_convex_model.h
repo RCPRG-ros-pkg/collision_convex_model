@@ -159,7 +159,7 @@ public:
 	CollisionPairs disabled_collisions;
 	CollisionPairs enabled_collisions;
 
-	const boost::shared_ptr< Link > &getLink(int id) const;
+	const boost::shared_ptr< Link > getLink(int id) const;
 	int getLinkIndex(const std::string &name) const;
 	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();

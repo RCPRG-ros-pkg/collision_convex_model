@@ -405,8 +405,7 @@ void Joint::clear()
     // TODO
 }
 
-const boost::shared_ptr< Link > &CollisionModel::getLink(int id) const {
-//boost::shared_ptr< const Link > CollisionModel::getLink(int id) {
+const boost::shared_ptr< Link > CollisionModel::getLink(int id) const {
 	if (id < 0 || id >= link_count_)
 	{
 		ROS_ERROR("CollisionModel::getLink: id out of range: 0 <= %d < %d", id, link_count_);
