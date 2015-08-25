@@ -47,12 +47,17 @@ namespace self_collision
 fcl_2::GJKSolver_indep CollisionModel::gjk_solver;
 
 Geometry::Geometry(int type) :
-	type_(type)
+	type_(type),
+    broadphase_radius_(0.0)
 {
 }
 
 int Geometry::getType() const {
     return type_;
+}
+
+double Geometry::getBroadphaseRadius() {
+    return broadphase_radius_;
 }
 
 Capsule::Capsule() :
@@ -65,7 +70,23 @@ Capsule::Capsule(double radius, double length) :
 {
     this->radius = radius;
     this->length = length;
+    broadphase_radius_ = this->length/2.0 + this->radius;
     shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Capsule(radius, length)) );
+}
+
+void Capsule::setSize(double radius, double length) {
+    this->radius = radius;
+    this->length = length;
+    broadphase_radius_ = this->length/2.0 + this->radius;
+    shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Capsule(radius, length)) );
+}
+
+double Capsule::getRadius() {
+    return radius;
+}
+
+double Capsule::getLength() {
+    return length;
 }
 
 void Capsule::clear()
@@ -223,7 +244,18 @@ Sphere::Sphere(double radius) :
 	Geometry(SPHERE)
 {
     this->radius = radius;
+    broadphase_radius_ = this->radius;
     shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Sphere(radius)) );
+}
+
+void Sphere::setSize(double radius) {
+    this->radius = radius;
+    broadphase_radius_ = this->radius;
+    shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Sphere(radius)) );
+}
+
+double Sphere::getRadius() {
+    return radius;
 }
 
 void Sphere::clear()
@@ -501,6 +533,7 @@ bool CollisionModel::parsePose(KDL::Frame &pose, TiXmlElement* xml)
 bool CollisionModel::parseCapsule(Capsule &s, TiXmlElement *c)
 {
 	s.clear();
+    double radius, length;
 	if (!c->Attribute("radius"))
 	{
 		ROS_ERROR("Capsule shape must have a radius attribute");
@@ -508,7 +541,7 @@ bool CollisionModel::parseCapsule(Capsule &s, TiXmlElement *c)
 	}
 	try
 	{
-		s.radius = boost::lexical_cast<double>(c->Attribute("radius"));
+		radius = boost::lexical_cast<double>(c->Attribute("radius"));
 	}
 	catch (boost::bad_lexical_cast &e)
 	{
@@ -525,7 +558,7 @@ bool CollisionModel::parseCapsule(Capsule &s, TiXmlElement *c)
 	}
 	try
 	{
-		s.length = boost::lexical_cast<double>(c->Attribute("length"));
+		length = boost::lexical_cast<double>(c->Attribute("length"));
 	}
 	catch (boost::bad_lexical_cast &e)
 	{
@@ -534,12 +567,15 @@ bool CollisionModel::parseCapsule(Capsule &s, TiXmlElement *c)
 		ROS_ERROR("%s", stm.str().c_str());
 		return false;
 	}
+
+    s.setSize(radius, length);
 	return true;
 }
 
 bool CollisionModel::parseSphere(Sphere &s, TiXmlElement *c)
 {
 	s.clear();
+    double radius;
 	if (!c->Attribute("radius"))
 	{
 		ROS_ERROR("Capsule shape must have a radius attribute");
@@ -547,7 +583,7 @@ bool CollisionModel::parseSphere(Sphere &s, TiXmlElement *c)
 	}
 	try
 	{
-		s.radius = boost::lexical_cast<double>(c->Attribute("radius"));
+		radius = boost::lexical_cast<double>(c->Attribute("radius"));
 	}
 	catch (boost::bad_lexical_cast &e)
 	{
@@ -557,6 +593,7 @@ bool CollisionModel::parseSphere(Sphere &s, TiXmlElement *c)
 		return false;
 	}
 
+    s.setSize(radius);
 	return true;
 }
 
@@ -634,7 +671,6 @@ boost::shared_ptr<Geometry> CollisionModel::parseGeometry(TiXmlElement *g)
 		geom.reset(s);
 		if (parseCapsule(*s, shape_xml))
 		{
-			s->shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Capsule(s->radius, s->length)) );
 			return geom;
 		}
 	}
@@ -644,7 +680,6 @@ boost::shared_ptr<Geometry> CollisionModel::parseGeometry(TiXmlElement *g)
 		geom.reset(s);
 		if (parseSphere(*s, shape_xml))
 		{
-			s->shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Sphere(s->radius)) );
 			return geom;
 		}
     }
@@ -835,8 +870,6 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
 			return;
 		}
 	}
-
-
 }
 
 boost::shared_ptr<CollisionModel> CollisionModel::parseURDF(const std::string &xml_string)
@@ -982,18 +1015,18 @@ void CollisionModel::generateCollisionPairs()
 
 bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, KDL::Vector &n1_out, KDL::Vector &n2_out, double d0, double &distance)
 {
+    // check broadphase distance
+    if ((tf1.p - tf2.p).Norm() > geom1->getBroadphaseRadius() + geom2->getBroadphaseRadius())
+    {
+        distance = d0 * 2.0;
+        return true;
+    }
+
 	if (geom1->getType() == Geometry::CAPSULE && geom2->getType() == Geometry::CAPSULE)
 	{
 //		ROS_INFO("DistanceMeasure::getDistance: CAPSULE,CAPSULE");
         const boost::shared_ptr<fcl_2::Capsule >  ob1 = boost::static_pointer_cast<fcl_2::Capsule >(geom1->shape);
         const boost::shared_ptr<fcl_2::Capsule >  ob2 = boost::static_pointer_cast<fcl_2::Capsule >(geom2->shape);
-
-		// calculate narrowphase distance
-		if ((tf1.p - tf2.p).Norm() > ob1->radius + ob1->lz/2.0 + ob2->radius + ob2->lz/2.0 + d0)
-		{
-			distance = d0 * 2.0;
-            return true;
-		}
 
 		// capsules are shifted by length/2
 		double x1,y1,z1,w1, x2, y2, z2, w2;
@@ -1028,14 +1061,6 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
         const boost::shared_ptr<fcl_2::Convex >  ob2 = boost::static_pointer_cast<fcl_2::Convex >(geom2->shape);
 
         const boost::shared_ptr<Convex > conv2 = boost::static_pointer_cast<Convex>(geom2);
-
-		// calculate narrowphase distance
-		if ((tf1.p - tf2 * conv2->center_).Norm() > ob1->radius + ob1->lz/2.0 + conv2->radius_ + d0)
-		{
-			distance = d0 * 2.0;
-            return true;
-		}
-
 
 		// capsules are shifted by length/2
 		double x1,y1,z1,w1, x2, y2, z2, w2;
@@ -1111,13 +1136,6 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
         const boost::shared_ptr<fcl_2::Sphere >  ob1 = boost::static_pointer_cast<fcl_2::Sphere >(geom1->shape);
         const boost::shared_ptr<fcl_2::Sphere >  ob2 = boost::static_pointer_cast<fcl_2::Sphere >(geom2->shape);
 
-		// calculate narrowphase distance
-		if ((tf1.p - tf2.p).Norm() > ob1->radius + ob2->radius + d0)
-		{
-            distance = d0 * 2.0;
-			return true;
-		}
-
 		double x1,y1,z1,w1, x2, y2, z2, w2;
 		KDL::Frame tf1_corrected = tf1;
 		tf1_corrected.M.GetQuaternion(x1,y1,z1,w1);
@@ -1145,13 +1163,6 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
 //		ROS_INFO("DistanceMeasure::getDistance: CAPSULE,SPHERE");
         const boost::shared_ptr<fcl_2::Capsule >  ob1 = boost::static_pointer_cast<fcl_2::Capsule >(geom1->shape);
         const boost::shared_ptr<fcl_2::Sphere >  ob2 = boost::static_pointer_cast<fcl_2::Sphere >(geom2->shape);
-
-		// calculate narrowphase distance
-		if ((tf1.p - tf2.p).Norm() > ob1->radius + ob1->lz/2.0 + ob2->radius + d0)
-		{
-            distance = d0 * 2.0;
-			return true;
-		}
 
 		// capsules are shifted by length/2
 		double x1,y1,z1,w1, x2, y2, z2, w2;

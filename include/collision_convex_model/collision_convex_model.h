@@ -63,6 +63,9 @@ public:
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr) = 0;
 	int marker_id_;
     int getType() const;
+    double getBroadphaseRadius();
+protected:
+    double broadphase_radius_;
 private:
 	int type_;
 };
@@ -72,12 +75,15 @@ class Capsule : public Geometry
 public:
 	Capsule();
 	Capsule(double radius, double length);
-	double radius;
-	double length;
+    void setSize(double radius, double length);
+    double getRadius();
+    double getLength();
 	virtual void clear();
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
 private:
+	double radius;
+	double length;
 };
 
 class Sphere : public Geometry
@@ -85,11 +91,13 @@ class Sphere : public Geometry
 public:
 	Sphere();
 	Sphere(double radius);
-	double radius;
+    void setSize(double radius);
+    double getRadius();
 	virtual void clear();
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
 private:
+	double radius;
 };
 
 class Convex : public Geometry
