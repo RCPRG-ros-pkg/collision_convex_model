@@ -46,6 +46,8 @@
 namespace fcl_2
 {
 class ShapeBase;
+class Capsule;
+class Convex;
 class GJKSolver_indep;
 }
 
@@ -55,7 +57,7 @@ namespace self_collision
 class Geometry
 {
 public:
-	enum {UNDEFINED, CAPSULE, CONVEX, SPHERE};
+	enum {UNDEFINED, CAPSULE, CONVEX, SPHERE, TRIANGLE};
 	boost::shared_ptr<fcl_2::ShapeBase> shape;
 	Geometry(int type);
 	virtual void clear() = 0;
@@ -100,12 +102,33 @@ private:
 	double radius;
 };
 
+class Triangle : public Geometry
+{
+public:
+	Triangle();
+	Triangle(const KDL::Vector &v1, const KDL::Vector &v2, const KDL::Vector &v3);
+    void setPoints(const KDL::Vector &v1, const KDL::Vector &v2, const KDL::Vector &v3);
+    void getPoints(KDL::Vector &v1, KDL::Vector &v2, KDL::Vector &v3) const;
+	virtual void clear();
+	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
+	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
+private:
+	KDL::Vector v1_, v2_, v3_;
+	KDL::Vector v1_L_, v2_L_, v3_L_;
+    KDL::Frame T_O_L_;
+    KDL::Frame T_L_O_;
+
+    KDL::Frame T_O_C1_, T_O_C2_, T_O_C3_;
+    boost::shared_ptr<fcl_2::Capsule > c1_, c2_, c3_;
+};
+
 class Convex : public Geometry
 {
 public:
 	Convex();
 	~Convex();
-	void updateConvex(int num_points, const std::vector<geometry_msgs::Point> &points, int num_planes, const std::vector<int> &polygons);
+	bool updateConvex(int num_points, const std::vector<geometry_msgs::Point> &points, int num_planes, const std::vector<int> &polygons);
+	bool updateConvex(int num_points, const std::vector<KDL::Vector> &points, int num_planes, const std::vector<int> &polygons);
 
 	typedef std::vector<std::pair<std::string, KDL::Vector> > ConvexPointsStrVector;
 	typedef std::vector<std::pair<int, KDL::Vector> > ConvexPointsIdVector;
@@ -116,7 +139,19 @@ public:
 	virtual void clear();
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
-private:
+
+    const std::vector<KDL::Vector >& getPoints() const;
+    const std::vector<int >& getPolygons() const;
+
+protected:
+    void calculateRadius();
+    void updateInternalData();
+
+    const int max_points_vec_size_;
+    const int max_polygons_vec_size_;
+
+    std::vector<KDL::Vector > points_;
+    std::vector<int > polygons_;
 };
 
 class Link;
@@ -178,7 +213,7 @@ public:
     const VecPtrLink &getLinks() const;
     int getLinksCount() const;
 
-    bool getJointLimits(const std::string &joint_name, double &lower, double &upper) const;
+//    bool getJointLimits(const std::string &joint_name, double &lower, double &upper) const;
 
     const Link::VecPtrCollision &getLinkCollisionArray(int idx) const;
 
@@ -221,8 +256,11 @@ public:
     KDL::Vector n2_B;
 };
 
+bool compareCollisionInfoDist(const CollisionInfo &i1, const CollisionInfo &i2);
+
 boost::shared_ptr< self_collision::Collision > createCollisionCapsule(double radius, double length, const KDL::Frame &origin);
 boost::shared_ptr< self_collision::Collision > createCollisionSphere(double radius, const KDL::Frame &origin);
+boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin);
 
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                         double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
