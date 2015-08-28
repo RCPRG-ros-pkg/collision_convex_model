@@ -1284,10 +1284,10 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
             result = true;
             distance = 0.0;
         }
-        n2_out = d1_out - d2_out;
-        n2_out.Normalize();
         n1_out = d2_out - d1_out;
         n1_out.Normalize();
+        n2_out = d1_out - d2_out;
+        n2_out.Normalize();
 
 		return result;
 	}
