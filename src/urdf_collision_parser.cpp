@@ -1552,7 +1552,7 @@ boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::
     pcol->origin = origin;
     return pcol;
 }
-/*
+//*
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                             double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions) {
         // self collision
@@ -1590,8 +1590,7 @@ void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &
             }
         }
 }
-//*/
-//*
+/*/
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                             double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions) {
         // self collision
@@ -1669,7 +1668,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, 
                 KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
 
                 self_collision::CollisionModel::getDistance(pcol->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
-                if (dist < 0) {
+                if (dist < 0.001) {
                     return true;
                 }
             }
@@ -1685,7 +1684,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
         KDL::Frame T_B_C2 = T_B_L2 * pcol2->origin;
 
         self_collision::CollisionModel::getDistance(pcol1->geometry, T_B_C1, pcol2->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
-        if (dist < 0) {
+        if (dist < 0.001) {
             return true;
         }
 
@@ -1700,7 +1699,8 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
         for (self_collision::Link::VecPtrCollision::const_iterator col2_it = link2->collision_array.begin(); col2_it != link2->collision_array.end(); col2_it++) {
             KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
             self_collision::CollisionModel::getDistance(pcol1->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
-            if (dist < 0) {
+//            std::cout << "dist " << dist << std::endl;
+            if (dist < 0.001) {
                 return true;
             }
         }
