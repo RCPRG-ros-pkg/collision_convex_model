@@ -66,6 +66,8 @@ public:
 	int marker_id_;
     int getType() const;
     double getBroadphaseRadius();
+
+    std::string visualisation_hint_;
 protected:
     double broadphase_radius_;
 private:
@@ -213,8 +215,6 @@ public:
     const VecPtrLink &getLinks() const;
     int getLinksCount() const;
 
-//    bool getJointLimits(const std::string &joint_name, double &lower, double &upper) const;
-
     const Link::VecPtrCollision &getLinkCollisionArray(int idx) const;
 
 protected:
@@ -260,7 +260,7 @@ bool compareCollisionInfoDist(const CollisionInfo &i1, const CollisionInfo &i2);
 
 boost::shared_ptr< self_collision::Collision > createCollisionCapsule(double radius, double length, const KDL::Frame &origin);
 boost::shared_ptr< self_collision::Collision > createCollisionSphere(double radius, const KDL::Frame &origin);
-boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin);
+boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin, const std::string &visualisation_hint="lines");
 
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                         double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);

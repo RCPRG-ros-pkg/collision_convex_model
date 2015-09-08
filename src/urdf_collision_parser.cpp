@@ -1496,18 +1496,7 @@ const CollisionModel::VecPtrLink &CollisionModel::getLinks() const {
 int CollisionModel::getLinksCount() const {
     return link_count_;
 }
-/*
-bool CollisionModel::getJointLimits(const std::string &joint_name, double &lower, double &upper) const {
-    for (std::vector<Joint>::const_iterator j_it = joints_.begin(); j_it != joints_.end(); j_it++) {
-        if (joint_name == j_it->name_) {
-            lower = j_it->lower_limit_;
-            upper = j_it->upper_limit_;
-            return true;
-        }
-    }
-    return false;
-}
-*/
+
 const Link::VecPtrCollision &CollisionModel::getLinkCollisionArray(int idx) const {
     return links_[idx]->collision_array;
 }
@@ -1522,7 +1511,7 @@ bool compareCollisionInfoDist(const CollisionInfo &i1, const CollisionInfo &i2) 
 boost::shared_ptr< self_collision::Collision > createCollisionCapsule(double radius, double length, const KDL::Frame &origin) {
         boost::shared_ptr< self_collision::Collision > pcol(new self_collision::Collision());
         pcol->geometry.reset(new self_collision::Capsule(radius, length));
-//        boost::shared_ptr<self_collision::Capsule > cap = boost::static_pointer_cast<self_collision::Capsule >(pcol->geometry);
+
         pcol->origin = origin;
         return pcol;
 }
@@ -1530,12 +1519,11 @@ boost::shared_ptr< self_collision::Collision > createCollisionCapsule(double rad
 boost::shared_ptr< self_collision::Collision > createCollisionSphere(double radius, const KDL::Frame &origin) {
         boost::shared_ptr< self_collision::Collision > pcol(new self_collision::Collision());
         pcol->geometry.reset(new self_collision::Sphere(radius));
-//        boost::shared_ptr<self_collision::Sphere > sph = boost::static_pointer_cast<self_collision::Sphere >(pcol->geometry);
         pcol->origin = origin;
         return pcol;
 }
 
-boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin) {
+boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin, const std::string &visualisation_hint) {
     int num_planes = 0;
     int next_plane_idx = 0;
     for (int i=0; i<polygons.size(); i++) {
@@ -1549,6 +1537,7 @@ boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::
     pcol->geometry.reset(new self_collision::Convex());
     boost::shared_ptr<self_collision::Convex > conv = boost::static_pointer_cast<self_collision::Convex >(pcol->geometry);
     conv->updateConvex(vertices.size(), vertices, num_planes, polygons);
+    conv->visualisation_hint_ = visualisation_hint;
     pcol->origin = origin;
     return pcol;
 }
