@@ -67,8 +67,12 @@ public:
     int getType() const;
     double getBroadphaseRadius();
 
+    void setColor(double cr, double cg, double cb, double ca);
+    void getColor(double &cr, double &cg, double &cb, double &ca) const;
+
     std::string visualisation_hint_;
 protected:
+    double cr_, cg_, cb_, ca_;
     double broadphase_radius_;
 private:
 	int type_;

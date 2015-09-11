@@ -60,6 +60,20 @@ double Geometry::getBroadphaseRadius() {
     return broadphase_radius_;
 }
 
+void Geometry::setColor(double cr, double cg, double cb, double ca) {
+    cr_ = cr;
+    cg_ = cg;
+    cb_ = cb;
+    ca_ = ca;
+}
+
+void Geometry::getColor(double &cr, double &cg, double &cb, double &ca) const {
+    cr = cr_;
+    cg = cg_;
+    cb = cb_;
+    ca = ca_;
+}
+
 Capsule::Capsule() :
 	Geometry(CAPSULE)
 {
