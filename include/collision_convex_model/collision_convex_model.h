@@ -38,6 +38,7 @@
 #define COLLISION_CONVEX_MODEL_H
 
 #include "ros/ros.h"
+#include <octomap/octomap.h>
 #include <kdl/frames.hpp>
 #include <kdl/tree.hpp>
 #include <tinyxml.h>
@@ -57,7 +58,7 @@ namespace self_collision
 class Geometry
 {
 public:
-	enum {UNDEFINED, CAPSULE, CONVEX, SPHERE, TRIANGLE};
+	enum {UNDEFINED, CAPSULE, CONVEX, SPHERE, TRIANGLE, OCTOMAP};
 	boost::shared_ptr<fcl_2::ShapeBase> shape;
 	Geometry(int type);
 	virtual void clear() = 0;
@@ -76,6 +77,21 @@ protected:
     double broadphase_radius_;
 private:
 	int type_;
+};
+
+class Octomap : public Geometry
+{
+public:
+    Octomap();
+    Octomap(const boost::shared_ptr<octomap::OcTree > &om);
+    void setOctomap(const boost::shared_ptr<octomap::OcTree > &om);
+    const boost::shared_ptr<octomap::OcTree >& getOctomap() const;
+
+	virtual void clear();
+	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
+	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
+protected:
+    boost::shared_ptr<octomap::OcTree > om_;
 };
 
 class Capsule : public Geometry
@@ -265,6 +281,7 @@ bool compareCollisionInfoDist(const CollisionInfo &i1, const CollisionInfo &i2);
 boost::shared_ptr< self_collision::Collision > createCollisionCapsule(double radius, double length, const KDL::Frame &origin);
 boost::shared_ptr< self_collision::Collision > createCollisionSphere(double radius, const KDL::Frame &origin);
 boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin, const std::string &visualisation_hint="lines");
+boost::shared_ptr< self_collision::Collision > createCollisionOctomap(const boost::shared_ptr<octomap::OcTree > &om, const KDL::Frame &origin);
 
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                         double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
