@@ -219,12 +219,15 @@ public:
 
     bool addLink(const std::string &name, const std::string &parent_name, const std::vector< boost::shared_ptr< Collision > > &col_array);
 	std::string name_;
+    bool addCollisionToLink(const std::string &link_name, const boost::shared_ptr< Collision > &pcol, const KDL::Frame &T_L_C);
+    bool removeCollisionFromLink(const std::string &link_name, const boost::shared_ptr< Collision > &pcol);
 
 	typedef std::vector<std::pair<int, int> > CollisionPairs;
 	CollisionPairs disabled_collisions;
 	CollisionPairs enabled_collisions;
 
 	const boost::shared_ptr< Link > getLink(int id) const;
+	const boost::shared_ptr< Link > getLink(const std::string &link_name) const;
 	int getLinkIndex(const std::string &name) const;
 	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();
@@ -236,6 +239,8 @@ public:
     int getLinksCount() const;
 
     const Link::VecPtrCollision &getLinkCollisionArray(int idx) const;
+
+	static fcl_2::GJKSolver_indep gjk_solver;
 
 protected:
 	CollisionModel();
@@ -252,9 +257,6 @@ protected:
 	static bool parseLink(Link &link, TiXmlElement* config);
     static bool parseLimit(Joint &joint, TiXmlElement* o);
     static bool parseJoint(Joint &joint, TiXmlElement* o);
-
-
-	static fcl_2::GJKSolver_indep gjk_solver;
 
     VecPtrLink links_;
 	int link_count_;
@@ -293,8 +295,12 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
 
 bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Link > &link2, const KDL::Frame &T_B_L2);
 
+bool checkCollision(const boost::shared_ptr< self_collision::Link > &link1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Link > &link2, const KDL::Frame &T_B_L2, double *min_dist=NULL);
+
 bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                     const std::set<int> &excluded_link_idx);
+
+void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost::shared_ptr<Geometry > &geom, const KDL::Frame &T_O_G);
 
 }	// namespace self_collision
 

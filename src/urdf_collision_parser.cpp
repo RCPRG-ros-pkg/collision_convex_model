@@ -682,6 +682,14 @@ const boost::shared_ptr< Link > CollisionModel::getLink(int id) const {
     return links_[id];
 }
 
+const boost::shared_ptr< Link > CollisionModel::getLink(const std::string &link_name) const {
+    int idx = getLinkIndex(link_name);
+    if (idx < 0) {
+        return boost::shared_ptr< Link >();
+    }
+    return getLink(idx);
+}
+
 int CollisionModel::getLinkIndex(const std::string &name) const {
     std::map<std::string, int >::const_iterator idx_it = link_name_idx_map_.find(name);
     if (idx_it == link_name_idx_map_.end()) {
@@ -1099,6 +1107,13 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
                 ROS_ERROR("link '%s' does not exist.", link2.c_str());
                 return;
             }
+            for (int idx = 0; idx < disabled_collisions.size(); idx++) {
+                if ( (disabled_collisions[idx].first == link1_id && disabled_collisions[idx].second == link2_id) ||
+                        (disabled_collisions[idx].first == link2_id && disabled_collisions[idx].second == link1_id) ) {
+                    ROS_ERROR("disabled collision pair is repeated:  %s  %s", link1.c_str(), link2.c_str());
+                }
+            }
+
             disabled_collisions.push_back(std::make_pair<int, int>(link1_id, link2_id));
         }
         catch (urdf::ParseError &e) {
@@ -1639,6 +1654,41 @@ bool CollisionModel::addLink(const std::string &name, const std::string &parent_
     return true;
 }
 
+bool CollisionModel::addCollisionToLink(const std::string &link_name, const boost::shared_ptr< Collision > &pcol, const KDL::Frame &T_L_C) {
+    int lidx = getLinkIndex(link_name);
+    if (lidx < 0) {
+        std::cout << "ERROR: CollisionModel::addCollisionToLink: could not find link " << link_name << std::endl;
+        return false;
+    }
+
+    links_[lidx]->collision_array.push_back( pcol );
+    return true;
+}
+
+bool CollisionModel::removeCollisionFromLink(const std::string &link_name, const boost::shared_ptr< Collision > &pcol) {
+    int lidx = getLinkIndex(link_name);
+    if (lidx < 0) {
+        std::cout << "ERROR: CollisionModel::removeCollisionFromLink: could not find link " << link_name << std::endl;
+        return false;
+    }
+
+    bool after = false;
+    for (int cidx = 0; cidx < links_[lidx]->collision_array.size(); cidx++) {
+        if (after) {
+            links_[lidx]->collision_array[cidx-1] = links_[lidx]->collision_array[cidx];
+        }
+        else if ( links_[lidx]->collision_array[cidx].get() == pcol.get() ) {
+            after = true;
+        }
+    }
+    if (!after) {
+        std::cout << "ERROR: CollisionModel::removeCollisionFromLink: could not find collision object" << std::endl;
+        return false;
+    }
+    links_[lidx]->collision_array.resize(links_[lidx]->collision_array.size() - 1);
+    return true;
+}
+
 const CollisionModel::VecPtrLink &CollisionModel::getLinks() const {
     return links_;
 }
@@ -1855,6 +1905,35 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
         return false;
 }
 
+bool checkCollision(const boost::shared_ptr< self_collision::Link > &link1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Link > &link2, const KDL::Frame &T_B_L2, double *min_dist) {
+        double dist = 0.0;
+        if (min_dist != NULL) {
+            *min_dist = -1.0;
+        }
+
+        KDL::Vector p1_B, p2_B, n1_B, n2_B;
+        for (self_collision::Link::VecPtrCollision::const_iterator col1_it = link1->collision_array.begin(); col1_it != link1->collision_array.end(); col1_it++) {
+            KDL::Frame T_B_C1 = T_B_L1 * (*col1_it)->origin;
+            for (self_collision::Link::VecPtrCollision::const_iterator col2_it = link2->collision_array.begin(); col2_it != link2->collision_array.end(); col2_it++) {
+                KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
+                self_collision::CollisionModel::getDistance((*col1_it)->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+                if (min_dist != NULL) {
+                    if ( (*min_dist) < 0 || (*min_dist) > dist) {
+                        (*min_dist) = dist;
+                    }
+                }
+
+                if (dist < 0.001) {
+                    if (min_dist != NULL) {
+                        *min_dist = 0.0;
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+}
+
 bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk, const std::set<int> &excluded_link_idx) {
         for (self_collision::CollisionModel::CollisionPairs::const_iterator it = col_model->enabled_collisions.begin(); it != col_model->enabled_collisions.end(); it++) {
             int link1_idx = it->first;
@@ -1882,7 +1961,71 @@ bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col
         return false;
 }
 
+void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost::shared_ptr<Geometry > &geom, const KDL::Frame &T_O_G) {
 
+    if (geom->getType() == Geometry::SPHERE) {
+        boost::shared_ptr<Sphere> sp = boost::static_pointer_cast<Sphere>(geom);
+        KDL::Vector p = T_O_G.p;
+        double r = sp->getRadius() + 2.0 * oc->getResolution();
+        octomath::Vector3 pmin(p.x() - r, p.y() - r, p.z() - r), pmax(p.x() + r, p.y() + r, p.z() + r);
+        std::list<octomap::OcTreeKey > del_key_list;
+        for (octomap::OcTree::leaf_bbx_iterator it = oc->begin_leafs_bbx(pmin, pmax); it != oc->end_leafs_bbx(); it++) {
+            KDL::Vector pt(it.getX(), it.getY(), it.getZ());
+            double dist = (p - pt).Norm();
+            if (dist < sp->getRadius() + oc->getResolution()) {
+                del_key_list.push_back( it.getKey() );
+            }
+        }
+        for (std::list<octomap::OcTreeKey >::const_iterator it = del_key_list.begin(); it != del_key_list.end(); it++) {
+            oc->deleteNode( (*it) );
+        }
+    }
+    else if (geom->getType() == Geometry::CAPSULE) {
+        boost::shared_ptr<Capsule> ca = boost::static_pointer_cast<Capsule>(geom);
+
+        const fcl_2::Capsule *ob1 = static_cast<fcl_2::Capsule* >(geom->shape.get());
+
+        // capsules are shifted by length/2
+        double x1,y1,z1,w1;
+        KDL::Frame tf1_corrected = T_O_G;
+        tf1_corrected.M.GetQuaternion(x1,y1,z1,w1);
+
+        double r = ca->getRadius() + 2.0 * oc->getResolution();
+
+        // create fake sphere for all octomap leafs
+        fcl_2::Sphere shape_sp(oc->getResolution());
+
+        KDL::Vector e1_O = T_O_G * KDL::Vector(0, 0, ca->getLength());
+        KDL::Vector e2_O = T_O_G * KDL::Vector(0, 0, -ca->getLength());
+        octomath::Vector3 pmin(std::min(e1_O.x(), e2_O.x()) - r, std::min(e1_O.y(), e2_O.y()) - r, std::min(e1_O.z(), e2_O.z()) - r);
+        octomath::Vector3 pmax(std::max(e1_O.x(), e2_O.x()) + r, std::max(e1_O.y(), e2_O.y()) + r, std::max(e1_O.z(), e2_O.z()) + r);
+        // output variables
+        fcl_2::Vec3f min_p1, min_p2, min_n1, min_n2;
+        KDL::Frame min_tf2_corrected;
+        std::list<octomap::OcTreeKey > del_key_list;
+        for (octomap::OcTree::leaf_bbx_iterator it = oc->begin_leafs_bbx(pmin, pmax); it != oc->end_leafs_bbx(); it++) {
+            KDL::Vector pt_O(it.getX(), it.getY(), it.getZ());
+            KDL::Frame tf2_corrected(pt_O);
+            double x2, y2, z2, w2;
+            tf2_corrected.M.GetQuaternion(x2,y2,z2,w2);
+
+            // output variables
+            fcl_2::Vec3f p1, p2, n1, n2;
+            double dist;
+            bool result = CollisionModel::gjk_solver.shapeDistance(
+                shape_sp, fcl_2::Transform3f(fcl_2::Quaternion3f(w2,x2,y2,z2), fcl_2::Vec3f(tf2_corrected.p.x(),tf2_corrected.p.y(),tf2_corrected.p.z())),
+                *ob1, fcl_2::Transform3f(fcl_2::Quaternion3f(w1,x1,y1,z1), fcl_2::Vec3f(tf1_corrected.p.x(),tf1_corrected.p.y(),tf1_corrected.p.z())),
+                 &dist, &p2, &p1, &n2, &n1);
+
+            if (dist < ca->getRadius() + oc->getResolution()) {
+                del_key_list.push_back( it.getKey() );
+            }
+        }
+        for (std::list<octomap::OcTreeKey >::const_iterator it = del_key_list.begin(); it != del_key_list.end(); it++) {
+            oc->deleteNode( (*it) );
+        }
+    }
+}
 
 }    // namespace self_collision
 
