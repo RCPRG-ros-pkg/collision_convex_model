@@ -1972,7 +1972,7 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost
         for (octomap::OcTree::leaf_bbx_iterator it = oc->begin_leafs_bbx(pmin, pmax); it != oc->end_leafs_bbx(); it++) {
             KDL::Vector pt(it.getX(), it.getY(), it.getZ());
             double dist = (p - pt).Norm();
-            if (dist < sp->getRadius() + oc->getResolution()) {
+            if (dist < 0) {
                 del_key_list.push_back( it.getKey() );
             }
         }
@@ -2017,7 +2017,7 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost
                 *ob1, fcl_2::Transform3f(fcl_2::Quaternion3f(w1,x1,y1,z1), fcl_2::Vec3f(tf1_corrected.p.x(),tf1_corrected.p.y(),tf1_corrected.p.z())),
                  &dist, &p2, &p1, &n2, &n1);
 
-            if (dist < ca->getRadius() + oc->getResolution()) {
+            if (dist < 0) {
                 del_key_list.push_back( it.getKey() );
             }
         }
