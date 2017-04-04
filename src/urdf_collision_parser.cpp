@@ -1787,6 +1787,72 @@ void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &
             }
         }
 }
+
+void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
+                                double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions) {
+        const int N = link_collisions.size();
+        if (N == 0) {
+            std::cout << "ERROR: getCollisionPairsNoAlloc: link_collisions.size() == 0" << std::endl;
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            link_collisions[i].link1_idx = -1;
+        }
+
+        int col_count = 0;
+
+        // self collision
+        for (self_collision::CollisionModel::CollisionPairs::const_iterator it = col_model->enabled_collisions.begin(); it != col_model->enabled_collisions.end(); it++) {
+            int link1_idx = it->first;
+            int link2_idx = it->second;
+            KDL::Frame T_B_L1 = links_fk[link1_idx];
+            KDL::Frame T_B_L2 = links_fk[link2_idx];
+
+            for (self_collision::Link::VecPtrCollision::const_iterator col1 = col_model->getLinkCollisionArray(link1_idx).begin(); col1 != col_model->getLinkCollisionArray(link1_idx).end(); col1++) {
+                for (self_collision::Link::VecPtrCollision::const_iterator col2 = col_model->getLinkCollisionArray(link2_idx).begin(); col2 != col_model->getLinkCollisionArray(link2_idx).end(); col2++) {
+                    double dist = 0.0;
+                    KDL::Vector p1_B, p2_B, n1_B, n2_B;
+                    KDL::Frame T_B_C1 = T_B_L1 * (*col1)->origin;
+                    KDL::Frame T_B_C2 = T_B_L2 * (*col2)->origin;
+
+                    // TODO: handle dist < 0
+                    if (!self_collision::CollisionModel::getDistance((*col1)->geometry, T_B_C1, (*col2)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, activation_dist, dist)) {
+                        std::cout << "ERROR: getCollisionPairs: dist < 0" << std::endl;
+                    }
+
+                    if (dist < activation_dist) {
+                        self_collision::CollisionInfo col_info;
+                        col_info.link1_idx = link1_idx;
+                        col_info.link2_idx = link2_idx;
+                        col_info.dist = dist;
+                        col_info.n1_B = n1_B;
+                        col_info.n2_B = n2_B;
+                        col_info.p1_B = p1_B;
+                        col_info.p2_B = p2_B;
+
+                        for (int i = 0; i < N; ++i) {
+                            if (link_collisions[i].link1_idx == -1) {
+                                link_collisions[i] = col_info;
+                                ++col_count;
+                                break;
+                            }
+                            else if (link_collisions[i].dist > col_info.dist) {
+                                int max_idx = ((col_count > N)?N:col_count);
+                                for (int j = max_idx-1; j > i; --j) {
+                                    link_collisions[j] = link_collisions[j-1];
+                                }
+                                link_collisions[i] = col_info;
+                                ++col_count;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+}
+
 /*/
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                             double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions) {

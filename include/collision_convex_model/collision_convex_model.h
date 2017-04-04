@@ -288,6 +288,9 @@ boost::shared_ptr< self_collision::Collision > createCollisionOctomap(const boos
 void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                         double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
 
+void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
+                                double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
+
 bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, const KDL::Frame &T_B_L1, const std::vector<KDL::Frame > &links_fk,
                     const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::set<int> &excluded_link_idx);
 
