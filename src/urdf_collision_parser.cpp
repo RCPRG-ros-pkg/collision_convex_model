@@ -56,6 +56,12 @@ int Geometry::getType() const {
     return type_;
 }
 
+static const std::string geom_type_str[] = {"UNDEFINED", "CAPSULE", "CONVEX", "SPHERE", "TRIANGLE", "OCTOMAP"};
+
+const std::string& Geometry::getTypeStr() const {
+    return geom_type_str[type_];
+}
+
 double Geometry::getBroadphaseRadius() {
     return broadphase_radius_;
 }
@@ -988,6 +994,7 @@ bool CollisionModel::parseLink(Link &link, TiXmlElement* config)
             return false;
         }
     }
+    return true;
 }
 
 bool CollisionModel::parseLimit(Joint &joint, TiXmlElement* o)
@@ -1210,6 +1217,130 @@ boost::shared_ptr<CollisionModel> CollisionModel::parseURDF(const std::string &x
     }
 
     return model;
+}
+
+bool CollisionModel::convertSelfCollisionsInURDF(const std::string &xml_in, std::string &xml_out)
+{
+    TiXmlDocument xml_doc;
+    xml_doc.Parse(xml_in.c_str());
+    if (xml_doc.Error())
+    {
+        ROS_ERROR("%s", xml_doc.ErrorDesc());
+        xml_doc.ClearError();
+        return false;
+    }
+    TiXmlElement *robot_xml = xml_doc.FirstChildElement("robot");
+    if (!robot_xml)
+    {
+        ROS_ERROR("Could not find the 'robot' element in the xml file");
+        return false;
+    }
+    int link_index=0;
+    // Get all Link elements
+    for (TiXmlElement* link_xml = robot_xml->FirstChildElement("link"); link_xml; link_xml = link_xml->NextSiblingElement("link"), link_index++)
+    {
+        Link link;
+        if (!parseLink(link, link_xml)) {
+            ROS_ERROR("Could not parse link.");
+            return false;
+        }
+
+        bool first_found = false;
+        for (int i = 0; i < link.collision_array.size(); ++i) {
+            boost::shared_ptr<Sphere > sp = boost::dynamic_pointer_cast<Sphere >( link.collision_array[i]->geometry );
+            boost::shared_ptr<Capsule > cap = boost::dynamic_pointer_cast<Capsule >( link.collision_array[i]->geometry );
+            if (sp || cap) {
+                if (!first_found) {
+                    first_found = true;
+                    // remove all <collision> nodes
+                    while (TiXmlNode* collision_xml = link_xml->LastChild("collision")) {
+                        link_xml->RemoveChild(collision_xml);
+                    }
+                }
+                if (sp) {
+                    TiXmlElement collision("collision");
+                    std::ostringstream xyz_val, rpy_val, radius_val;
+                    xyz_val << link.collision_array[i]->origin.p.x() << " " << link.collision_array[i]->origin.p.y() << " " << link.collision_array[i]->origin.p.z();
+                    double roll, pitch, yaw;
+                    link.collision_array[i]->origin.M.GetRPY(roll, pitch, yaw);
+                    rpy_val << roll << " " << pitch << " " << yaw;
+                    TiXmlElement origin("origin");
+                    origin.SetAttribute("xyz", xyz_val.str().c_str());
+                    origin.SetAttribute("rpy", rpy_val.str().c_str());
+                    collision.InsertEndChild(origin);
+
+                    radius_val << sp->getRadius();
+                    TiXmlElement geometry("geometry");
+                    TiXmlElement sphere("sphere");
+                    sphere.SetAttribute("radius", radius_val.str().c_str());
+                    geometry.InsertEndChild(sphere);
+                    collision.InsertEndChild(geometry);
+                    link_xml->InsertEndChild(collision);
+                }
+                else if (cap) {
+                    std::ostringstream xyz_val, rpy_val, radius_val, length_val;
+                    double roll, pitch, yaw;
+                    link.collision_array[i]->origin.M.GetRPY(roll, pitch, yaw);
+                    rpy_val << roll << " " << pitch << " " << yaw;
+
+                    TiXmlElement collision1("collision");
+                    KDL::Frame fr1 = link.collision_array[i]->origin * KDL::Frame(KDL::Vector(0,0,cap->getLength()/2));
+                    xyz_val << fr1.p.x() << " " << fr1.p.y() << " " << fr1.p.z();
+                    TiXmlElement origin1("origin");
+                    origin1.SetAttribute("xyz", xyz_val.str().c_str());
+                    origin1.SetAttribute("rpy", rpy_val.str().c_str());
+                    collision1.InsertEndChild(origin1);
+
+                    length_val << cap->getLength();
+                    radius_val << cap->getRadius();
+                    TiXmlElement geometry1("geometry");
+                    TiXmlElement sphere1("sphere");
+                    sphere1.SetAttribute("radius", radius_val.str().c_str());
+                    geometry1.InsertEndChild(sphere1);
+                    collision1.InsertEndChild(geometry1);
+                    link_xml->InsertEndChild(collision1);
+
+                    TiXmlElement collision2("collision");
+                    KDL::Frame fr2 = link.collision_array[i]->origin * KDL::Frame(KDL::Vector(0,0,-cap->getLength()/2));
+                    xyz_val.str("");
+                    xyz_val << fr2.p.x() << " " << fr2.p.y() << " " << fr2.p.z();
+                    TiXmlElement origin2("origin");
+                    origin2.SetAttribute("xyz", xyz_val.str().c_str());
+                    origin2.SetAttribute("rpy", rpy_val.str().c_str());
+                    collision2.InsertEndChild(origin2);
+
+                    TiXmlElement geometry2("geometry");
+                    TiXmlElement sphere2("sphere");
+                    sphere2.SetAttribute("radius", radius_val.str().c_str());
+                    geometry2.InsertEndChild(sphere2);
+                    collision2.InsertEndChild(geometry2);
+                    link_xml->InsertEndChild(collision2);
+
+                    TiXmlElement collision3("collision");
+                    KDL::Frame fr3 = link.collision_array[i]->origin;
+                    xyz_val.str("");
+                    xyz_val << fr3.p.x() << " " << fr2.p.y() << " " << fr2.p.z();
+                    TiXmlElement origin3("origin");
+                    origin3.SetAttribute("xyz", xyz_val.str().c_str());
+                    origin3.SetAttribute("rpy", rpy_val.str().c_str());
+                    collision3.InsertEndChild(origin3);
+
+                    TiXmlElement geometry3("geometry");
+                    TiXmlElement cylinder("cylinder");
+                    cylinder.SetAttribute("radius", radius_val.str().c_str());
+                    cylinder.SetAttribute("length", length_val.str().c_str());
+                    geometry3.InsertEndChild(cylinder);
+                    collision3.InsertEndChild(geometry3);
+                    link_xml->InsertEndChild(collision3);
+                }
+            }
+        }
+    }
+
+    std::ostringstream stream_out;
+    stream_out << xml_doc;
+    xml_out = stream_out.str();
+    return true;
 }
 
 void CollisionModel::generateCollisionPairs()

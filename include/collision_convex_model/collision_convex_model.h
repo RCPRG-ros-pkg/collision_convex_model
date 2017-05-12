@@ -58,7 +58,7 @@ namespace self_collision
 class Geometry
 {
 public:
-	enum {UNDEFINED, CAPSULE, CONVEX, SPHERE, TRIANGLE, OCTOMAP};
+	enum {UNDEFINED=0, CAPSULE, CONVEX, SPHERE, TRIANGLE, OCTOMAP};
 	boost::shared_ptr<fcl_2::ShapeBase> shape;
 	Geometry(int type);
 	virtual void clear() = 0;
@@ -66,6 +66,7 @@ public:
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr) = 0;
 	int marker_id_;
     int getType() const;
+    const std::string& getTypeStr() const;
     double getBroadphaseRadius();
 
     void setColor(double cr, double cg, double cb, double ca);
@@ -215,6 +216,7 @@ class CollisionModel
 {
 public:
 	static boost::shared_ptr<CollisionModel> parseURDF(const std::string &xml_string);
+    static bool convertSelfCollisionsInURDF(const std::string &xml_in, std::string &xml_out);
 	void parseSRDF(const std::string &xml_string);
 
     bool addLink(const std::string &name, const std::string &parent_name, const std::vector< boost::shared_ptr< Collision > > &col_array);
