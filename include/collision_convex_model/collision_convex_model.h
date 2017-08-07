@@ -189,6 +189,32 @@ public:
 private:
 };
 
+class VisualGeometry
+{
+public:
+	enum {UNDEFINED=0, MESH};
+	VisualGeometry(int type);
+    int getType() const;
+private:
+	int type_;
+};
+
+class VisualMesh : public VisualGeometry
+{
+public:
+    VisualMesh();
+    std::string filename_;
+};
+
+
+class Visual
+{
+public:
+    Visual();
+    KDL::Frame origin_;
+    boost::shared_ptr<VisualGeometry > geom_;    
+};
+
 class Link
 {
 public:
@@ -200,6 +226,7 @@ public:
 	const KDL::TreeElement *kdl_segment_;
 	typedef std::vector< boost::shared_ptr< Collision > > VecPtrCollision;
 	VecPtrCollision collision_array;
+    std::vector<boost::shared_ptr<Visual > > visual_array_;
 private:
 };
 
@@ -259,6 +286,8 @@ protected:
 	static bool parseLink(Link &link, TiXmlElement* config);
     static bool parseLimit(Joint &joint, TiXmlElement* o);
     static bool parseJoint(Joint &joint, TiXmlElement* o);
+    static boost::shared_ptr<VisualGeometry > parseVisualGeometry(TiXmlElement* config);
+    static boost::shared_ptr<Visual > parseVisual(TiXmlElement* config);
 
     VecPtrLink links_;
 	int link_count_;
@@ -271,6 +300,12 @@ protected:
 
 class CollisionInfo {
 public:
+    CollisionInfo()
+        : link1_idx(-1)
+        , link2_idx(-1)
+        , dist(0)
+    {}
+
     int link1_idx;
     int link2_idx;
     KDL::Vector p1_B;

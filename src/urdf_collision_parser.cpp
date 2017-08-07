@@ -659,6 +659,21 @@ void Convex::updateMarkers(visualization_msgs::MarkerArray &marker_array, const 
     }
 }
 
+VisualGeometry::VisualGeometry(int type)
+    : type_(type)
+{}
+
+VisualMesh::VisualMesh()
+    : VisualGeometry(MESH)
+{}
+
+int VisualGeometry::getType() const {
+    return type_;
+}
+
+Visual::Visual()
+{}
+
 void Collision::clear()
 {
     // TODO
@@ -968,6 +983,36 @@ bool CollisionModel::parseCollision(Collision &col, TiXmlElement* config)
     return true;
 }
 
+boost::shared_ptr<VisualGeometry > CollisionModel::parseVisualGeometry(TiXmlElement* config) {
+    // mesh
+    TiXmlElement *mesh = config->FirstChildElement("mesh");
+    if (mesh) {
+        boost::shared_ptr<VisualMesh > result(new VisualMesh());
+        result->filename_ = mesh->Attribute("filename");
+        return boost::dynamic_pointer_cast<VisualGeometry >(result);
+    }
+    return boost::shared_ptr<VisualGeometry >();
+}
+
+boost::shared_ptr<Visual > CollisionModel::parseVisual(TiXmlElement* config) {
+    boost::shared_ptr<Visual > result(new Visual());
+
+    // Origin
+    TiXmlElement *o = config->FirstChildElement("origin");
+    if (o) {
+        if (!parsePose(result->origin_, o)) {
+            return boost::shared_ptr<Visual >();
+        }
+    }
+    // Geometry
+    TiXmlElement *geom = config->FirstChildElement("geometry");
+    result->geom_ = parseVisualGeometry(geom);
+    if (!result->geom_) {
+        return boost::shared_ptr<Visual >();
+    }
+    return result;
+}
+
 bool CollisionModel::parseLink(Link &link, TiXmlElement* config)
 {
     link.clear();
@@ -989,9 +1034,21 @@ bool CollisionModel::parseLink(Link &link, TiXmlElement* config)
         }
         else
         {
-            col.reset();
             ROS_ERROR("Could not parse collision element for Link [%s]", link.name.c_str());
             return false;
+        }
+    }
+
+    // Multiple Visuals (optional)
+    for (TiXmlElement* vis_xml = config->FirstChildElement("visual"); vis_xml; vis_xml = vis_xml->NextSiblingElement("visual"))
+    {
+        boost::shared_ptr<Visual > vis = parseVisual(vis_xml);
+        if (vis) {
+            link.visual_array_.push_back(vis);
+        }
+        else {
+            ROS_INFO("Could not parse visual element for Link [%s]", link.name.c_str());
+            //return false; // no error
         }
     }
     return true;
