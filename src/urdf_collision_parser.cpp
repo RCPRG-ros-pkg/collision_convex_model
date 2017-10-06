@@ -62,7 +62,7 @@ const std::string& Geometry::getTypeStr() const {
     return geom_type_str[type_];
 }
 
-double Geometry::getBroadphaseRadius() {
+double Geometry::getBroadphaseRadius() const {
     return broadphase_radius_;
 }
 
@@ -127,11 +127,11 @@ void Capsule::setSize(double radius, double length) {
     shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Capsule(radius, length)) );
 }
 
-double Capsule::getRadius() {
+double Capsule::getRadius() const {
     return radius;
 }
 
-double Capsule::getLength() {
+double Capsule::getLength() const {
     return length;
 }
 
@@ -298,7 +298,7 @@ void Sphere::setSize(double radius) {
     shape.reset( static_cast<fcl_2::ShapeBase*>(new fcl_2::Sphere(radius)) );
 }
 
-double Sphere::getRadius() {
+double Sphere::getRadius() const {
     return radius;
 }
 
@@ -1452,7 +1452,37 @@ void CollisionModel::generateCollisionPairs()
     }
 }
 
-bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, KDL::Vector &n1_out, KDL::Vector &n2_out, double d0, double &distance)
+bool CollisionModel::checkRayCollision(const Geometry *geom, const KDL::Frame &tf, const KDL::Vector &ray_start, const KDL::Vector &ray_end) {
+//    if (geom->getType() == Geometry::CAPSULE) {
+        KDL::Vector nz = ray_end-ray_start;
+        Capsule ray(0.02, nz.Norm());
+        nz.Normalize();
+        KDL::Vector nx,ny;
+        if (fabs(nz.z()) < 0.7) {
+            nx = KDL::Vector(0,0,1);
+        }
+        else {
+            nx = KDL::Vector(0,1,0);
+        }
+        ny = nz*nx;
+        nx = ny*nz;
+        ny.Normalize();
+        nx.Normalize();
+        KDL::Frame tf2(KDL::Rotation(nx,ny,nz), (ray_end+ray_start)/2);
+        KDL::Vector d1_out, d2_out, n1_out, n2_out;
+        double distance;
+        if (!getDistance(geom, tf, &ray, tf2, d1_out, d2_out, n1_out, n2_out, 0.0, distance) || distance < 0.0) {
+            return true;
+        }
+
+//    }
+//    else if (geom->getType() == Geometry::SPHERE) {
+//    }
+
+    return false;
+}
+
+bool CollisionModel::getDistance(const Geometry *geom1, const KDL::Frame &tf1, const Geometry *geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, KDL::Vector &n1_out, KDL::Vector &n2_out, double d0, double &distance)
 {
     // check broadphase distance
     if ((tf1.p - tf2.p).Norm() > geom1->getBroadphaseRadius() + geom2->getBroadphaseRadius() + d0)
@@ -1495,7 +1525,7 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
         const fcl_2::Capsule *ob1 = static_cast<fcl_2::Capsule* >(geom1->shape.get());
         const fcl_2::Convex *ob2 = static_cast<fcl_2::Convex* >(geom2->shape.get());
 
-        const Convex *conv2 = static_cast<Convex* >(geom2.get());
+        const Convex *conv2 = static_cast<const Convex* >(geom2);
 
         // capsules are shifted by length/2
         double x1,y1,z1,w1, x2, y2, z2, w2;
@@ -1543,7 +1573,7 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
         const fcl_2::Sphere *ob1 = static_cast<fcl_2::Sphere* >(geom1->shape.get());
         const fcl_2::Convex *ob2 = static_cast<fcl_2::Convex* >(geom2->shape.get());
 
-        const Convex *conv2 = static_cast<Convex* >(geom2.get());
+        const Convex *conv2 = static_cast<const Convex* >(geom2);
 
         // capsules are shifted by length/2
         double x1,y1,z1,w1, x2, y2, z2, w2;
@@ -1588,8 +1618,8 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
         const fcl_2::Convex *ob1 = static_cast<fcl_2::Convex* >(geom1->shape.get());
         const fcl_2::Convex *ob2 = static_cast<fcl_2::Convex* >(geom2->shape.get());
 
-        const Convex *conv1 = static_cast<Convex* >(geom1.get());
-        const Convex *conv2 = static_cast<Convex* >(geom2.get());
+        const Convex *conv1 = static_cast<const Convex* >(geom1);
+        const Convex *conv2 = static_cast<const Convex* >(geom2);
 
         // calculate narrowphase distance
         if ((tf1 * conv1->center_ - tf2 * conv2->center_).Norm() > conv1->radius_ + conv2->radius_ + d0)
@@ -1693,8 +1723,8 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
     }
     else if (geom1->getType() == Geometry::SPHERE && geom2->getType() == Geometry::OCTOMAP)
     {
-        boost::shared_ptr<Sphere> sp = boost::static_pointer_cast<Sphere>(geom1);
-        boost::shared_ptr<Octomap> om = boost::static_pointer_cast<Octomap>(geom2);
+        const Sphere *sp = static_cast<const Sphere*>(geom1);
+        const Octomap *om = static_cast<const Octomap*>(geom2);
         const boost::shared_ptr<octomap::OcTree > &oc = om->getOctomap();
 
         const KDL::Frame &T_W_S = tf1;
@@ -1739,8 +1769,8 @@ bool CollisionModel::getDistance(const boost::shared_ptr<Geometry > &geom1, cons
     }
     else if (geom1->getType() == Geometry::CAPSULE && geom2->getType() == Geometry::OCTOMAP)
     {
-        boost::shared_ptr<Capsule> ca = boost::static_pointer_cast<Capsule>(geom1);
-        boost::shared_ptr<Octomap> om = boost::static_pointer_cast<Octomap>(geom2);
+        const Capsule *ca = static_cast<const Capsule*>(geom1);
+        const Octomap *om = static_cast<const Octomap*>(geom2);
         const boost::shared_ptr<octomap::OcTree > &oc = om->getOctomap();
 
         const KDL::Frame &T_W_C = tf1;
@@ -1955,7 +1985,7 @@ void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &
                     KDL::Frame T_B_C2 = T_B_L2 * (*col2)->origin;
 
                     // TODO: handle dist < 0
-                    if (!self_collision::CollisionModel::getDistance((*col1)->geometry, T_B_C1, (*col2)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, activation_dist, dist)) {
+                    if (!self_collision::CollisionModel::getDistance((*col1)->geometry.get(), T_B_C1, (*col2)->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, activation_dist, dist)) {
                         std::cout << "ERROR: getCollisionPairs: dist < 0" << std::endl;
                     }
 
@@ -2005,7 +2035,7 @@ void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionM
                     KDL::Frame T_B_C2 = T_B_L2 * (*col2)->origin;
 
                     // TODO: handle dist < 0
-                    if (!self_collision::CollisionModel::getDistance((*col1)->geometry, T_B_C1, (*col2)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, activation_dist, dist)) {
+                    if (!self_collision::CollisionModel::getDistance((*col1)->geometry.get(), T_B_C1, (*col2)->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, activation_dist, dist)) {
                         std::cout << "ERROR: getCollisionPairs: dist < 0" << std::endl;
                     }
 
@@ -2118,7 +2148,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, 
                 KDL::Frame T_B_C1 = T_B_L1 * pcol->origin;
                 KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
 
-                self_collision::CollisionModel::getDistance(pcol->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+                self_collision::CollisionModel::getDistance(pcol->geometry.get(), T_B_C1, (*col2_it)->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
                 if (dist < 0.001) {
                     return true;
                 }
@@ -2134,7 +2164,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
         KDL::Frame T_B_C1 = T_B_L1 * pcol1->origin;
         KDL::Frame T_B_C2 = T_B_L2 * pcol2->origin;
 
-        self_collision::CollisionModel::getDistance(pcol1->geometry, T_B_C1, pcol2->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+        self_collision::CollisionModel::getDistance(pcol1->geometry.get(), T_B_C1, pcol2->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
         if (dist < 0.001) {
             return true;
         }
@@ -2149,7 +2179,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
 
         for (self_collision::Link::VecPtrCollision::const_iterator col2_it = link2->collision_array.begin(); col2_it != link2->collision_array.end(); col2_it++) {
             KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
-            self_collision::CollisionModel::getDistance(pcol1->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+            self_collision::CollisionModel::getDistance(pcol1->geometry.get(), T_B_C1, (*col2_it)->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
 //            std::cout << "dist " << dist << std::endl;
             if (dist < 0.001) {
                 return true;
@@ -2170,7 +2200,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Link > &link1, cons
             KDL::Frame T_B_C1 = T_B_L1 * (*col1_it)->origin;
             for (self_collision::Link::VecPtrCollision::const_iterator col2_it = link2->collision_array.begin(); col2_it != link2->collision_array.end(); col2_it++) {
                 KDL::Frame T_B_C2 = T_B_L2 * (*col2_it)->origin;
-                self_collision::CollisionModel::getDistance((*col1_it)->geometry, T_B_C1, (*col2_it)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+                self_collision::CollisionModel::getDistance((*col1_it)->geometry.get(), T_B_C1, (*col2_it)->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
                 if (min_dist != NULL) {
                     if ( (*min_dist) < 0 || (*min_dist) > dist) {
                         (*min_dist) = dist;
@@ -2205,7 +2235,7 @@ bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col
                     KDL::Vector p1_B, p2_B, n1_B, n2_B;
                     KDL::Frame T_B_C1 = T_B_L1 * (*col1)->origin;
                     KDL::Frame T_B_C2 = T_B_L2 * (*col2)->origin;
-                    self_collision::CollisionModel::getDistance((*col1)->geometry, T_B_C1, (*col2)->geometry, T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
+                    self_collision::CollisionModel::getDistance((*col1)->geometry.get(), T_B_C1, (*col2)->geometry.get(), T_B_C2, p1_B, p2_B, n1_B, n2_B, 0.01, dist);
                     if (dist < 0.001) {
                         return true;
                     }
@@ -2220,7 +2250,7 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost
     if (geom->getType() == Geometry::SPHERE) {
         boost::shared_ptr<Sphere> sp = boost::static_pointer_cast<Sphere>(geom);
         KDL::Vector p = T_O_G.p;
-        double r = sp->getRadius() + 2.0 * oc->getResolution();
+        double r = sp->getRadius() + 3.0 * oc->getResolution();
         octomath::Vector3 pmin(p.x() - r, p.y() - r, p.z() - r), pmax(p.x() + r, p.y() + r, p.z() + r);
         std::list<octomap::OcTreeKey > del_key_list;
         for (octomap::OcTree::leaf_bbx_iterator it = oc->begin_leafs_bbx(pmin, pmax); it != oc->end_leafs_bbx(); it++) {
@@ -2244,7 +2274,7 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost
         KDL::Frame tf1_corrected = T_O_G;
         tf1_corrected.M.GetQuaternion(x1,y1,z1,w1);
 
-        double r = ca->getRadius() + 2.0 * oc->getResolution();
+        double r = ca->getRadius() + 3.0 * oc->getResolution();
 
         // create fake sphere for all octomap leafs
         fcl_2::Sphere shape_sp(oc->getResolution());

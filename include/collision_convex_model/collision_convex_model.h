@@ -67,12 +67,13 @@ public:
 	int marker_id_;
     int getType() const;
     const std::string& getTypeStr() const;
-    double getBroadphaseRadius();
+    double getBroadphaseRadius() const;
 
     void setColor(double cr, double cg, double cb, double ca);
     void getColor(double &cr, double &cg, double &cb, double &ca) const;
 
     std::string visualisation_hint_;
+
 protected:
     double cr_, cg_, cb_, ca_;
     double broadphase_radius_;
@@ -101,8 +102,8 @@ public:
 	Capsule();
 	Capsule(double radius, double length);
     void setSize(double radius, double length);
-    double getRadius();
-    double getLength();
+    double getRadius() const;
+    double getLength() const;
 	virtual void clear();
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
@@ -117,7 +118,7 @@ public:
 	Sphere();
 	Sphere(double radius);
     void setSize(double radius);
-    double getRadius();
+    double getRadius() const;
 	virtual void clear();
 	virtual void addMarkers(visualization_msgs::MarkerArray &marker_array);
 	virtual void updateMarkers(visualization_msgs::MarkerArray &marker_array, const KDL::Frame &fr);
@@ -260,7 +261,8 @@ public:
 	int getLinkIndex(const std::string &name) const;
 	const std::string &getLinkName(int idx) const;
 	void generateCollisionPairs();
-    static bool getDistance(const boost::shared_ptr<Geometry > &geom1, const KDL::Frame &tf1, const boost::shared_ptr<Geometry > &geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, KDL::Vector &n1_out, KDL::Vector &n2_out, double d0, double &distance);
+    static bool getDistance(const Geometry *geom1, const KDL::Frame &tf1, const Geometry *geom2, const KDL::Frame &tf2, KDL::Vector &d1_out, KDL::Vector &d2_out, KDL::Vector &n1_out, KDL::Vector &n2_out, double d0, double &distance);
+    static bool checkRayCollision(const Geometry *geom, const KDL::Frame &tf, const KDL::Vector &ray_start, const KDL::Vector &ray_end);
 
     typedef std::vector< boost::shared_ptr< Link > > VecPtrLink;
 
