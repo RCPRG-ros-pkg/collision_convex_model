@@ -40,6 +40,8 @@
 #include <kdl/frames.hpp>
 #include <tinyxml.h>
 #include "narrowphase.h"
+#include <math.h> 
+#include <algorithm>
 
 namespace self_collision
 {
@@ -2245,27 +2247,41 @@ bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col
         return false;
 }
 
-void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost::shared_ptr<Geometry > &geom, const KDL::Frame &T_O_G) {
+void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geometry* geom, const KDL::Frame &T_O_G) {
 
+    const double dist_mult = 2.0;
     if (geom->getType() == Geometry::SPHERE) {
-        boost::shared_ptr<Sphere> sp = boost::static_pointer_cast<Sphere>(geom);
+        const Sphere *sp = static_cast<const Sphere*>(geom);
         KDL::Vector p = T_O_G.p;
-        double r = sp->getRadius() + 3.0 * oc->getResolution();
-        octomath::Vector3 pmin(p.x() - r, p.y() - r, p.z() - r), pmax(p.x() + r, p.y() + r, p.z() + r);
-        std::list<octomap::OcTreeKey > del_key_list;
-        for (octomap::OcTree::leaf_bbx_iterator it = oc->begin_leafs_bbx(pmin, pmax); it != oc->end_leafs_bbx(); it++) {
-            KDL::Vector pt(it.getX(), it.getY(), it.getZ());
-            double dist = (p - pt).Norm();
-            if (dist < 0) {
-                del_key_list.push_back( it.getKey() );
+        double r = sp->getRadius() + dist_mult * oc->getResolution();
+
+        KDL::Vector bb_min = (p - KDL::Vector(r,r,r));
+        KDL::Vector bb_max = (p + KDL::Vector(r,r,r));
+
+        octomap::OcTreeKey key = oc->coordToKey( bb_min.x(), bb_min.y(), bb_min.z() );
+        int steps_i = std::max(1.0, (bb_max.x()-bb_min.x()) / oc->getResolution() );
+        int steps_j = std::max(1.0, (bb_max.y()-bb_min.y()) / oc->getResolution() );
+        int steps_k = std::max(1.0, (bb_max.z()-bb_min.z()) / oc->getResolution() );
+        for (int i = 0; i < steps_i; ++i) {
+            for (int j = 0; j < steps_j; ++j) {
+                for (int k = 0; k < steps_k; ++k) {
+                    octomap::OcTreeKey key_it(i+key[0],j+key[1],k+key[2]);
+                    octomath::Vector3 coord = oc->keyToCoord(key_it);
+                    octomap::OcTreeNode *node = oc->search(coord);
+                    if (!node || !oc->isNodeOccupied(node)) {
+                        continue;
+                    }
+                    KDL::Vector pt(coord.x(),coord.y(),coord.z());
+                    double dist = (p - pt).Norm();
+                    if (dist < r) {
+                        oc->updateNode(key_it, false, true);
+                    }
+                }
             }
-        }
-        for (std::list<octomap::OcTreeKey >::const_iterator it = del_key_list.begin(); it != del_key_list.end(); it++) {
-            oc->deleteNode( (*it) );
         }
     }
     else if (geom->getType() == Geometry::CAPSULE) {
-        boost::shared_ptr<Capsule> ca = boost::static_pointer_cast<Capsule>(geom);
+        const Capsule *ca = static_cast<const Capsule*>(geom);
 
         const fcl_2::Capsule *ob1 = static_cast<fcl_2::Capsule* >(geom->shape.get());
 
@@ -2274,39 +2290,43 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost
         KDL::Frame tf1_corrected = T_O_G;
         tf1_corrected.M.GetQuaternion(x1,y1,z1,w1);
 
-        double r = ca->getRadius() + 3.0 * oc->getResolution();
+        double r = ca->getRadius() + dist_mult * oc->getResolution();
+
+        KDL::Vector cap1 = T_O_G * KDL::Vector(0,0,ca->getLength()/2);
+        KDL::Vector cap2 = T_O_G * KDL::Vector(0,0,-ca->getLength()/2);
 
         // create fake sphere for all octomap leafs
-        fcl_2::Sphere shape_sp(oc->getResolution());
+        fcl_2::Sphere shape_sp(dist_mult*oc->getResolution());
 
-        KDL::Vector e1_O = T_O_G * KDL::Vector(0, 0, ca->getLength());
-        KDL::Vector e2_O = T_O_G * KDL::Vector(0, 0, -ca->getLength());
-        octomath::Vector3 pmin(std::min(e1_O.x(), e2_O.x()) - r, std::min(e1_O.y(), e2_O.y()) - r, std::min(e1_O.z(), e2_O.z()) - r);
-        octomath::Vector3 pmax(std::max(e1_O.x(), e2_O.x()) + r, std::max(e1_O.y(), e2_O.y()) + r, std::max(e1_O.z(), e2_O.z()) + r);
-        // output variables
-        fcl_2::Vec3f min_p1, min_p2, min_n1, min_n2;
-        KDL::Frame min_tf2_corrected;
-        std::list<octomap::OcTreeKey > del_key_list;
-        for (octomap::OcTree::leaf_bbx_iterator it = oc->begin_leafs_bbx(pmin, pmax); it != oc->end_leafs_bbx(); it++) {
-            KDL::Vector pt_O(it.getX(), it.getY(), it.getZ());
-            KDL::Frame tf2_corrected(pt_O);
-            double x2, y2, z2, w2;
-            tf2_corrected.M.GetQuaternion(x2,y2,z2,w2);
+        KDL::Vector bb_min = (KDL::Vector(std::min(cap1.x(), cap2.x()), std::min(cap1.y(), cap2.y()), std::min(cap1.z(), cap2.z())) - KDL::Vector(r,r,r));
+        KDL::Vector bb_max = (KDL::Vector(std::max(cap1.x(), cap2.x()), std::max(cap1.y(), cap2.y()), std::max(cap1.z(), cap2.z())) + KDL::Vector(r,r,r));
 
-            // output variables
-            fcl_2::Vec3f p1, p2, n1, n2;
-            double dist;
-            bool result = CollisionModel::gjk_solver.shapeDistance(
-                shape_sp, fcl_2::Transform3f(fcl_2::Quaternion3f(w2,x2,y2,z2), fcl_2::Vec3f(tf2_corrected.p.x(),tf2_corrected.p.y(),tf2_corrected.p.z())),
-                *ob1, fcl_2::Transform3f(fcl_2::Quaternion3f(w1,x1,y1,z1), fcl_2::Vec3f(tf1_corrected.p.x(),tf1_corrected.p.y(),tf1_corrected.p.z())),
-                 &dist, &p2, &p1, &n2, &n1);
+        octomap::OcTreeKey key = oc->coordToKey( bb_min.x(), bb_min.y(), bb_min.z() );
+        int steps_i = std::max(1.0, (bb_max.x()-bb_min.x()) / oc->getResolution() );
+        int steps_j = std::max(1.0, (bb_max.y()-bb_min.y()) / oc->getResolution() );
+        int steps_k = std::max(1.0, (bb_max.z()-bb_min.z()) / oc->getResolution() );
+        for (int i = 0; i < steps_i; ++i) {
+            for (int j = 0; j < steps_j; ++j) {
+                for (int k = 0; k < steps_k; ++k) {
+                    octomap::OcTreeKey key_it(i+key[0],j+key[1],k+key[2]);
+                    octomath::Vector3 coord = oc->keyToCoord(key_it);
+                    octomap::OcTreeNode *node = oc->search(coord);
+                    if (!node || !oc->isNodeOccupied(node)) {
+                        continue;
+                    }
+                    // output variables
+                    fcl_2::Vec3f p1, p2, n1, n2;
+                    double dist;
+                    bool result = CollisionModel::gjk_solver.shapeDistance(
+                        shape_sp, fcl_2::Transform3f(fcl_2::Quaternion3f(1,0,0,0), fcl_2::Vec3f(coord.x(),coord.y(),coord.z())),
+                        *ob1, fcl_2::Transform3f(fcl_2::Quaternion3f(w1,x1,y1,z1), fcl_2::Vec3f(tf1_corrected.p.x(),tf1_corrected.p.y(),tf1_corrected.p.z())),
+                         &dist, &p2, &p1, &n2, &n1);
 
-            if (dist < 0) {
-                del_key_list.push_back( it.getKey() );
+                    if (dist < 0) {
+                        oc->updateNode(key_it, false, true);
+                    }
+                }
             }
-        }
-        for (std::list<octomap::OcTreeKey >::const_iterator it = del_key_list.begin(); it != del_key_list.end(); it++) {
-            oc->deleteNode( (*it) );
         }
     }
 }

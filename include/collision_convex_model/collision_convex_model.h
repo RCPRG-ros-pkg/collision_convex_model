@@ -342,7 +342,7 @@ bool checkCollision(const boost::shared_ptr< self_collision::Link > &link1, cons
 bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
                     const std::set<int> &excluded_link_idx);
 
-void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const boost::shared_ptr<Geometry > &geom, const KDL::Frame &T_O_G);
+void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geometry* geom, const KDL::Frame &T_O_G);
 
 }	// namespace self_collision
 
