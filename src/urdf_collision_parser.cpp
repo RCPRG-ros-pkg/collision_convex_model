@@ -1457,7 +1457,7 @@ void CollisionModel::generateCollisionPairs()
 bool CollisionModel::checkRayCollision(const Geometry *geom, const KDL::Frame &tf, const KDL::Vector &ray_start, const KDL::Vector &ray_end) {
 //    if (geom->getType() == Geometry::CAPSULE) {
         KDL::Vector nz = ray_end-ray_start;
-        Capsule ray(0.02, nz.Norm());
+        Capsule ray(0.04, nz.Norm());
         nz.Normalize();
         KDL::Vector nx,ny;
         if (fabs(nz.z()) < 0.7) {
