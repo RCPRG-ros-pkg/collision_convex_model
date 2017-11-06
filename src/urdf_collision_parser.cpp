@@ -2247,7 +2247,8 @@ bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col
         return false;
 }
 
-void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geometry* geom, const KDL::Frame &T_O_G) {
+int removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geometry* geom, const KDL::Frame &T_O_G) {
+    int keys_removed = 0;
 
     const double dist_mult = 2.0;
     if (geom->getType() == Geometry::SPHERE) {
@@ -2274,6 +2275,7 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geome
                     KDL::Vector pt(coord.x(),coord.y(),coord.z());
                     double dist = (p - pt).Norm();
                     if (dist < r) {
+                        ++keys_removed;
                         oc->updateNode(key_it, false, true);
                     }
                 }
@@ -2323,12 +2325,14 @@ void removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geome
                          &dist, &p2, &p1, &n2, &n1);
 
                     if (dist < 0) {
+                        ++keys_removed;
                         oc->updateNode(key_it, false, true);
                     }
                 }
             }
         }
     }
+    return keys_removed;
 }
 
 }    // namespace self_collision
