@@ -41,7 +41,12 @@
 #include <octomap/octomap.h>
 #include <kdl/frames.hpp>
 #include <kdl/tree.hpp>
+#include <math.h> 
 #include <tinyxml.h>
+#include <algorithm>
+#include <boost/algorithm/string.hpp>
+
+#include "urdf/model.h"
 #include "visualization_msgs/MarkerArray.h"
 
 namespace fcl_2

@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
 )
 
-find_package(Eigen REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(kdl_parser REQUIRED)
 find_package(octomap REQUIRED)
@@ -20,13 +20,13 @@ find_package(octomap REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES collision_convex_model
-  DEPENDS  Eigen orocos_kdl
+  DEPENDS EIGEN3 orocos_kdl
 )
 
 
 link_directories(${orocos_kdl_LIBRARY_DIRS} ${OCTOMAP_LIBRARY_DIRS})
 
-include_directories(${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS} ${OCTOMAP_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS} ${OCTOMAP_INCLUDE_DIRS})
 
 ### Orocos Dependencies ###
 # Note that orocos_use_package() does not need to be called for any dependency

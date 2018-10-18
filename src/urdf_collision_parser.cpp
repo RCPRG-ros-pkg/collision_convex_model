@@ -34,14 +34,8 @@
 
 /** \author Dawid Seredynski */
 
-#include "ros/ros.h"
 #include "collision_convex_model/collision_convex_model.h"
-#include "urdf/model.h"
-#include <kdl/frames.hpp>
-#include <tinyxml.h>
 #include "narrowphase.h"
-#include <math.h> 
-#include <algorithm>
 
 namespace self_collision
 {
@@ -908,8 +902,7 @@ bool CollisionModel::parseConvex(Convex &s, TiXmlElement *c)
         KDL::Vector point;
         if (parsePoint(frame, point, col_xml))
         {
-            
-            s.points_str_.push_back(std::make_pair<std::string, KDL::Vector>(frame, point));
+            s.points_str_.push_back(std::pair<std::string, KDL::Vector>(frame, point));
         }
         else
         {
@@ -1180,7 +1173,7 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
                 }
             }
 
-            disabled_collisions.push_back(std::make_pair<int, int>(link1_id, link2_id));
+            disabled_collisions.push_back(std::pair<int, int>(link1_id, link2_id));
         }
         catch (urdf::ParseError &e) {
             ROS_ERROR("disable_collisions xml is not initialized correctly");
@@ -1254,7 +1247,7 @@ boost::shared_ptr<CollisionModel> CollisionModel::parseURDF(const std::string &x
                         ROS_ERROR("parseURDF: could not find link %s", p_it->first.c_str());
                         break;
                     }
-                    conv->points_id_.push_back( std::make_pair<int, KDL::Vector>(id, p_it->second) );
+                    conv->points_id_.push_back(std::pair<int, KDL::Vector>(id, p_it->second));
                 }
             }
         }
@@ -1437,7 +1430,7 @@ void CollisionModel::generateCollisionPairs()
             {
                 for (CollisionPairs::iterator ec_it = enabled_collisions.begin(); ec_it != enabled_collisions.end(); ec_it++)
                 {
-                    if (    (ec_it->first == l_i && ec_it->second == l_j) ||
+                    if ((ec_it->first == l_i && ec_it->second == l_j) ||
                         (ec_it->second == l_i && ec_it->first == l_j) )
                     {
                         add = false;
@@ -1447,7 +1440,7 @@ void CollisionModel::generateCollisionPairs()
 
                 if (add)
                 {
-                    enabled_collisions.push_back(std::make_pair<int, int>(l_i, l_j));
+                    enabled_collisions.push_back(std::pair<int, int>(l_i, l_j));
                 }
             }
         }
