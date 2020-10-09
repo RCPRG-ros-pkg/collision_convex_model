@@ -1149,7 +1149,9 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
     }
 
     // Get all disable_collisions elements
-    for (TiXmlElement* disable_collision_xml = robot_xml->FirstChildElement("disable_collisions"); disable_collision_xml; disable_collision_xml = disable_collision_xml->NextSiblingElement("disable_collisions"))
+    for (TiXmlElement* disable_collision_xml = robot_xml->FirstChildElement("disable_collisions");
+            disable_collision_xml;
+            disable_collision_xml = disable_collision_xml->NextSiblingElement("disable_collisions"))
     {
         std::string link1, link2;
         try {
@@ -1158,18 +1160,20 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
             int link2_id = getLinkIndex(link2);
             if (link1_id == -1)
             {
-                ROS_ERROR("link '%s' does not exist.", link1.c_str());
-                return;
+                ROS_INFO("Ignoring collision pair: ('%s', '%s'), because link '%s' does not exist.",
+                                                link1.c_str(), link2.c_str(), link1.c_str());
+                continue;
             }
             if (link2_id == -1)
             {
-                ROS_ERROR("link '%s' does not exist.", link2.c_str());
-                return;
+                ROS_INFO("Ignoring collision pair: ('%s', '%s'), because link '%s' does not exist.",
+                                                link1.c_str(), link2.c_str(), link2.c_str());
+                continue;
             }
             for (int idx = 0; idx < disabled_collisions.size(); idx++) {
                 if ( (disabled_collisions[idx].first == link1_id && disabled_collisions[idx].second == link2_id) ||
                         (disabled_collisions[idx].first == link2_id && disabled_collisions[idx].second == link1_id) ) {
-                    ROS_ERROR("disabled collision pair is repeated:  %s  %s", link1.c_str(), link2.c_str());
+                    ROS_WARN("disabled collision pair is repeated:  %s  %s", link1.c_str(), link2.c_str());
                 }
             }
 
