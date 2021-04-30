@@ -250,7 +250,7 @@ class CollisionModel
 public:
 	static boost::shared_ptr<CollisionModel> parseURDF(const std::string &xml_string);
     static bool convertSelfCollisionsInURDF(const std::string &xml_in, std::string &xml_out);
-	void parseSRDF(const std::string &xml_string);
+	int parseSRDF(const std::string &xml_string);
 
     bool addLink(const std::string &name, const std::string &parent_name, const std::vector< boost::shared_ptr< Collision > > &col_array);
 	std::string name_;
@@ -258,8 +258,8 @@ public:
     bool removeCollisionFromLink(const std::string &link_name, const boost::shared_ptr< Collision > &pcol);
 
 	typedef std::vector<std::pair<int, int> > CollisionPairs;
-	CollisionPairs disabled_collisions;
-	CollisionPairs enabled_collisions;
+	std::vector<CollisionPairs > disabled_collisions;
+	std::vector<CollisionPairs > enabled_collisions;
 
 	const boost::shared_ptr< Link > getLink(int id) const;
 	const boost::shared_ptr< Link > getLink(const std::string &link_name) const;
@@ -329,11 +329,13 @@ boost::shared_ptr< self_collision::Collision > createCollisionSphere(double radi
 boost::shared_ptr< self_collision::Collision > createCollisionConvex(const std::vector<KDL::Vector > &vertices, const std::vector<int> &polygons, const KDL::Frame &origin, const std::string &visualisation_hint="lines");
 boost::shared_ptr< self_collision::Collision > createCollisionOctomap(const boost::shared_ptr<octomap::OcTree > &om, const KDL::Frame &origin);
 
-void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
-                        double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
+void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model,
+                    int srdf_id, const std::vector<KDL::Frame > &links_fk, double activation_dist,
+                                    std::vector<self_collision::CollisionInfo> &link_collisions);
 
-void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
-                                double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions);
+void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionModel> &col_model,
+                    int srdf_id, const std::vector<KDL::Frame > &links_fk, double activation_dist,
+                                    std::vector<self_collision::CollisionInfo> &link_collisions);
 
 bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol, const KDL::Frame &T_B_L1, const std::vector<KDL::Frame > &links_fk,
                     const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::set<int> &excluded_link_idx);
@@ -344,8 +346,8 @@ bool checkCollision(const boost::shared_ptr< self_collision::Collision > &pcol1,
 
 bool checkCollision(const boost::shared_ptr< self_collision::Link > &link1, const KDL::Frame &T_B_L1, const boost::shared_ptr< self_collision::Link > &link2, const KDL::Frame &T_B_L2, double *min_dist=NULL);
 
-bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
-                    const std::set<int> &excluded_link_idx);
+bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, int srdf_id,
+                const std::vector<KDL::Frame > &links_fk, const std::set<int> &excluded_link_idx);
 
 int removeNodesFromOctomap(boost::shared_ptr<octomap::OcTree > &oc, const Geometry* geom, const KDL::Frame &T_O_G);
 

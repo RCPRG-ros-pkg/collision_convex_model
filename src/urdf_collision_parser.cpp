@@ -1115,9 +1115,11 @@ bool CollisionModel::parseDisableCollision(std::string &link1, std::string &link
     return false;
 }
 
-void CollisionModel::parseSRDF(const std::string &xml_string)
+int CollisionModel::parseSRDF(const std::string &xml_string)
 {
-    disabled_collisions.clear();
+    int result_id = disabled_collisions.size();
+    disabled_collisions.push_back( CollisionPairs() );
+    CollisionPairs& dis_col = disabled_collisions[result_id];
 
     TiXmlDocument xml_doc;
     xml_doc.Parse(xml_string.c_str());
@@ -1125,27 +1127,31 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
     {
         ROS_ERROR("%s", xml_doc.ErrorDesc());
         xml_doc.ClearError();
-        return;
+        throw std::logic_error("Wrong xml document");
+        //return -1;
     }
 
     TiXmlElement *robot_xml = xml_doc.FirstChildElement("robot");
     if (!robot_xml)
     {
         ROS_ERROR("Could not find the 'robot' element in the xml file");
-        return;
+        throw std::logic_error("Could not find the 'robot' element in the xml file");
+        //return -1;
     }
     // Get robot name
     const char *name = robot_xml->Attribute("name");
     if (!name)
     {
         ROS_ERROR("No name given for the robot.");
-        return;
+        throw std::logic_error("No name given for the robot.");
+        //return -1;
     }
 
     if (name_ != std::string(name))
     {
         ROS_ERROR("Name from SRDF: %s differ from %s", name, name_.c_str());
-        return;
+        throw std::logic_error("Name from SRDF differs from URDF");
+        //return -1;
     }
 
     // Get all disable_collisions elements
@@ -1170,20 +1176,22 @@ void CollisionModel::parseSRDF(const std::string &xml_string)
                                                 link1.c_str(), link2.c_str(), link2.c_str());
                 continue;
             }
-            for (int idx = 0; idx < disabled_collisions.size(); idx++) {
-                if ( (disabled_collisions[idx].first == link1_id && disabled_collisions[idx].second == link2_id) ||
-                        (disabled_collisions[idx].first == link2_id && disabled_collisions[idx].second == link1_id) ) {
+            for (int idx = 0; idx < dis_col.size(); idx++) {
+                if ( (dis_col[idx].first == link1_id && dis_col[idx].second == link2_id) ||
+                        (dis_col[idx].first == link2_id && dis_col[idx].second == link1_id) ) {
                     ROS_WARN("disabled collision pair is repeated:  %s  %s", link1.c_str(), link2.c_str());
                 }
             }
 
-            disabled_collisions.push_back(std::pair<int, int>(link1_id, link2_id));
+            dis_col.push_back(std::pair<int, int>(link1_id, link2_id));
         }
         catch (urdf::ParseError &e) {
             ROS_ERROR("disable_collisions xml is not initialized correctly");
-            return;
+        throw std::logic_error("disable_collisions xml is not initialized correctly");
+            //return -1;
         }
     }
+    return result_id;
 }
 
 boost::shared_ptr<CollisionModel> CollisionModel::parseURDF(const std::string &xml_string)
@@ -1402,49 +1410,54 @@ bool CollisionModel::convertSelfCollisionsInURDF(const std::string &xml_in, std:
 void CollisionModel::generateCollisionPairs()
 {
     enabled_collisions.clear();
-//    ROS_INFO("%ld", links_.size());
+    for (int srdf_id = 0; srdf_id < disabled_collisions.size(); ++srdf_id) {
+        enabled_collisions.push_back( CollisionPairs() );
+        CollisionPairs& dis_col = disabled_collisions[srdf_id];
+        CollisionPairs& en_col = enabled_collisions[srdf_id];
+        //ROS_INFO("%ld", links_.size());
 
-    for (int l_i = 0; l_i < link_count_; l_i++)
-    {
-        if (links_[l_i]->collision_array.size() == 0)
+        for (int l_i = 0; l_i < link_count_; l_i++)
         {
-            continue;
-        }
-        for (int l_j = 0; l_j < link_count_; l_j++)
-        {
-            if (links_[l_j]->collision_array.size() == 0)
+            if (links_[l_i]->collision_array.size() == 0)
             {
                 continue;
             }
-            if (l_i == l_j)
+            for (int l_j = 0; l_j < link_count_; l_j++)
             {
-                continue;
-            }
-            bool add = true;
-            for (CollisionPairs::iterator dc_it = disabled_collisions.begin(); dc_it != disabled_collisions.end(); dc_it++)
-            {
-                if (    (dc_it->first == l_i && dc_it->second == l_j) ||
-                    (dc_it->second == l_i && dc_it->first == l_j) )
+                if (links_[l_j]->collision_array.size() == 0)
                 {
-                    add = false;
-                    break;
+                    continue;
                 }
-            }
-            if (add)
-            {
-                for (CollisionPairs::iterator ec_it = enabled_collisions.begin(); ec_it != enabled_collisions.end(); ec_it++)
+                if (l_i == l_j)
                 {
-                    if ((ec_it->first == l_i && ec_it->second == l_j) ||
-                        (ec_it->second == l_i && ec_it->first == l_j) )
+                    continue;
+                }
+                bool add = true;
+                for (CollisionPairs::iterator dc_it = dis_col.begin(); dc_it != dis_col.end(); dc_it++)
+                {
+                    if (    (dc_it->first == l_i && dc_it->second == l_j) ||
+                        (dc_it->second == l_i && dc_it->first == l_j) )
                     {
                         add = false;
                         break;
                     }
                 }
-
                 if (add)
                 {
-                    enabled_collisions.push_back(std::pair<int, int>(l_i, l_j));
+                    for (CollisionPairs::iterator ec_it = en_col.begin(); ec_it != en_col.end(); ec_it++)
+                    {
+                        if ((ec_it->first == l_i && ec_it->second == l_j) ||
+                            (ec_it->second == l_i && ec_it->first == l_j) )
+                        {
+                            add = false;
+                            break;
+                        }
+                    }
+
+                    if (add)
+                    {
+                        en_col.push_back(std::pair<int, int>(l_i, l_j));
+                    }
                 }
             }
         }
@@ -1967,10 +1980,13 @@ boost::shared_ptr< self_collision::Collision > createCollisionOctomap(const boos
 }
 
 //*
-void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
-                            double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions) {
+void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &col_model,
+                    int srdf_id, const std::vector<KDL::Frame > &links_fk, double activation_dist,
+                                    std::vector<self_collision::CollisionInfo> &link_collisions) {
         // self collision
-        for (self_collision::CollisionModel::CollisionPairs::const_iterator it = col_model->enabled_collisions.begin(); it != col_model->enabled_collisions.end(); it++) {
+        for (self_collision::CollisionModel::CollisionPairs::const_iterator it =
+                                    col_model->enabled_collisions[srdf_id].begin();
+                                        it != col_model->enabled_collisions[srdf_id].end(); it++) {
             int link1_idx = it->first;
             int link2_idx = it->second;
             KDL::Frame T_B_L1 = links_fk[link1_idx];
@@ -2005,8 +2021,9 @@ void getCollisionPairs(const boost::shared_ptr<self_collision::CollisionModel> &
         }
 }
 
-void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk,
-                                double activation_dist, std::vector<self_collision::CollisionInfo> &link_collisions) {
+void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionModel> &col_model,
+                    int srdf_id, const std::vector<KDL::Frame > &links_fk, double activation_dist,
+                                    std::vector<self_collision::CollisionInfo> &link_collisions) {
         const int N = link_collisions.size();
         if (N == 0) {
             std::cout << "ERROR: getCollisionPairsNoAlloc: link_collisions.size() == 0" << std::endl;
@@ -2020,7 +2037,9 @@ void getCollisionPairsNoAlloc(const boost::shared_ptr<self_collision::CollisionM
         int col_count = 0;
 
         // self collision
-        for (self_collision::CollisionModel::CollisionPairs::const_iterator it = col_model->enabled_collisions.begin(); it != col_model->enabled_collisions.end(); it++) {
+        for (self_collision::CollisionModel::CollisionPairs::const_iterator it =
+                                    col_model->enabled_collisions[srdf_id].begin();
+                                        it != col_model->enabled_collisions[srdf_id].end(); it++) {
             int link1_idx = it->first;
             int link2_idx = it->second;
             KDL::Frame T_B_L1 = links_fk[link1_idx];
@@ -2217,8 +2236,11 @@ bool checkCollision(const boost::shared_ptr< self_collision::Link > &link1, cons
         return false;
 }
 
-bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, const std::vector<KDL::Frame > &links_fk, const std::set<int> &excluded_link_idx) {
-        for (self_collision::CollisionModel::CollisionPairs::const_iterator it = col_model->enabled_collisions.begin(); it != col_model->enabled_collisions.end(); it++) {
+bool checkCollision(const boost::shared_ptr<self_collision::CollisionModel> &col_model, int srdf_id,
+        const std::vector<KDL::Frame > &links_fk, const std::set<int> &excluded_link_idx) {
+        for (self_collision::CollisionModel::CollisionPairs::const_iterator it =
+                                    col_model->enabled_collisions[srdf_id].begin();
+                                        it != col_model->enabled_collisions[srdf_id].end(); it++) {
             int link1_idx = it->first;
             int link2_idx = it->second;
 
