@@ -1042,7 +1042,7 @@ bool CollisionModel::parseLink(Link &link, TiXmlElement* config)
             link.visual_array_.push_back(vis);
         }
         else {
-            ROS_INFO("Could not parse visual element for Link [%s]", link.name.c_str());
+            //ROS_INFO("Could not parse visual element for Link [%s]", link.name.c_str());
             //return false; // no error
         }
     }
