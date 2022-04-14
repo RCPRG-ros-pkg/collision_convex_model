@@ -1383,7 +1383,7 @@ bool CollisionModel::convertSelfCollisionsInURDF(const std::string &xml_in, std:
                     TiXmlElement collision3("collision");
                     KDL::Frame fr3 = link.collision_array[i]->origin;
                     xyz_val.str("");
-                    xyz_val << fr3.p.x() << " " << fr2.p.y() << " " << fr2.p.z();
+                    xyz_val << fr3.p.x() << " " << fr3.p.y() << " " << fr3.p.z();
                     TiXmlElement origin3("origin");
                     origin3.SetAttribute("xyz", xyz_val.str().c_str());
                     origin3.SetAttribute("rpy", rpy_val.str().c_str());
